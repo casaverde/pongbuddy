@@ -3,145 +3,171 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Table Tennis Analyzer — Advanced Biomechanics Edition</title>
+  <title>Table Tennis Analyzer — Multi-Player Mode</title>
   <style>
-    :root{--bg:#0b0b0d;--panel:#121216;--accent:#00eaff;--success:#4cffc1;--warning:#ffb347;--danger:#ff6b6b;--player1:#00ff78;--player2:#ff5050;--bio-wrist:#ff00ff;--bio-foot:#00ffff;--bio-torso:#ffff00}
+    :root{--bg:#0b0b0d;--panel:#121216;--accent:#00eaff;--success:#4cffc1;--warning:#ffb347;--danger:#ff6b6b;--player1:#00eaff;--player2:#ff6b9d}
     *{box-sizing:border-box}
     body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);color:#eee}
-    .wrap{display:flex;gap:20px;padding:18px}
-    .left{flex:1;position:relative;max-width:980px}
+    .wrap{display:flex;gap:20px;padding:18px;min-height:100vh}
+    .left{flex:1;max-width:calc(100% - 420px)}
     .controls{margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .controls input[type="file"]{background:#1a1a1f;border:1px solid #333;padding:8px 12px;border-radius:6px;color:#eee}
-    .controls button{background:var(--accent);color:#000;border:none;padding:8px 16px;border-radius:6px;font-weight:600;cursor:pointer;transition:all .2s}
-    .controls button:hover{background:#00c8d9}
-    .controls button:disabled{background:#333;color:#666;cursor:not-allowed}
-    .controls button.secondary{background:#222;color:#eee;border:1px solid #333}
-    .controls button.secondary:hover{background:#333}
-    .controls button.danger{background:var(--danger);color:#fff}
-    .controls button.active{background:var(--success);color:#000}
-    video{width:100%;border-radius:8px;border:2px solid #222;background:#000;display:block}
-    #overlay{position:absolute;left:0;top:0;pointer-events:none;border-radius:8px}
-    #bio-overlay{position:absolute;left:0;top:0;pointer-events:none;border-radius:8px}
+    .controls button{background:var(--accent);color:#000;border:none;padding:8px 16px;border-radius:6px;font-weight:600;transition:all .2s}
+    .controls button:hover{background:#00c8d9;transform:translateY(-1px)}
+    .controls button:disabled{background:#333;color:#666;cursor:not-allowed;transform:none}
+    .controls .mode-toggle{display:flex;background:#1a1a1f;border-radius:8px;padding:3px;border:1px solid #333}
+    .controls .mode-toggle button{background:transparent;color:#888;padding:6px 12px;font-size:12px}
+    .controls .mode-toggle button.active{background:var(--accent);color:#000}
+    .video-container{position:relative;display:inline-block;width:100%}
+    video{width:100%;max-width:920px;border-radius:8px;border:2px solid #222;background:#000}
+    #overlay-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;border-radius:8px}
     
-    /* Real-time feedback panel */
-    #feedback-panel{position:absolute;top:10px;left:10px;right:10px;pointer-events:none;z-index:100}
-    .feedback-card{background:rgba(0,0,0,0.85);border-radius:10px;padding:12px 16px;margin-bottom:8px;border-left:4px solid var(--accent);animation:slideIn 0.3s ease-out;backdrop-filter:blur(8px)}
-    .feedback-card.wrist{border-left-color:var(--bio-wrist)}
-    .feedback-card.foot{border-left-color:var(--bio-foot)}
-    .feedback-card.torso{border-left-color:var(--bio-torso)}
-    .feedback-card.stroke{border-left-color:var(--success)}
-    .feedback-card .title{font-weight:700;font-size:13px;margin-bottom:4px;display:flex;align-items:center;gap:8px}
-    .feedback-card .message{font-size:11px;color:#aaa;line-height:1.4}
-    .feedback-card .metrics{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap}
-    .feedback-card .metric{background:#1a1a1f;padding:4px 8px;border-radius:4px;font-size:10px}
-    .feedback-card .metric .label{color:#666;margin-right:4px}
-    .feedback-card .metric .value{font-weight:600}
-    .feedback-card .metric .value.good{color:var(--success)}
-    .feedback-card .metric .value.warn{color:var(--warning)}
-    .feedback-card .metric .value.poor{color:var(--danger)}
-    @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes fadeOut{from{opacity:1}to{opacity:0}}
-    .feedback-card.fade-out{animation:fadeOut 0.5s ease-out forwards}
+    #player-detect-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:20000;display:none;align-items:center;justify-content:center}
+    #player-detect-modal.active{display:flex}
+    .modal-content{background:var(--panel);border-radius:16px;padding:30px;max-width:750px;width:95%;border:1px solid #333;box-shadow:0 20px 60px rgba(0,0,0,0.5);max-height:90vh;overflow-y:auto}
+    .modal-content h2{margin-top:0;color:var(--accent);font-size:1.4em}
+    .modal-content p{color:#999;line-height:1.6;margin-bottom:20px}
     
-    /* Dashboard */
-    #dash-toggle{position:fixed;right:0;top:45%;transform:translateY(-50%);z-index:10000;background:var(--accent);color:#000;padding:12px 14px;border-radius:8px 0 0 8px;cursor:pointer;font-weight:700;box-shadow:-4px 0 12px rgba(0,234,255,0.3)}
-    #dashboard{position:fixed;right:-440px;top:0;width:420px;height:100%;background:var(--panel);box-shadow:-8px 0 24px rgba(0,0,0,0.6);transition:right .3s;padding:18px;overflow:auto;z-index:9999}
+    .scanning-state{text-align:center;padding:40px 20px}
+    .scanning-state .spinner{width:60px;height:60px;border:4px solid #333;border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .scanning-state h3{color:#fff;margin:0 0 10px 0}
+    .scanning-state p{color:#888;margin:0}
+    .scan-progress{margin-top:15px;font-size:12px;color:var(--accent)}
+    
+    .detection-results{display:none}
+    .detection-results.active{display:block}
+    
+    .video-preview-container{position:relative;background:#000;border-radius:12px;overflow:hidden;margin-bottom:20px}
+    .video-preview-container video{width:100%;display:block}
+    .video-preview-container canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+    
+    .player-tags-info{background:#1a1a1f;border-radius:10px;padding:16px;margin-bottom:20px}
+    .player-tags-info h4{margin:0 0 12px 0;color:#fff;font-size:14px}
+    .detected-players-list{display:flex;flex-wrap:wrap;gap:10px}
+    .player-tag-item{display:flex;align-items:center;gap:8px;background:#0a0a0c;padding:10px 14px;border-radius:8px;border:2px solid #333;cursor:pointer;transition:all .2s}
+    .player-tag-item:hover{border-color:var(--accent)}
+    .player-tag-item.selected{border-color:var(--success);background:#0a1a0f}
+    .player-tag-badge{width:32px;height:32px;background:var(--accent);color:#000;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;border-radius:6px}
+    .player-tag-desc{font-size:13px;color:#ccc}
+    
+    .multi-player-select{background:#1a1a1f;border-radius:10px;padding:16px;margin-bottom:20px}
+    .multi-player-select h4{margin:0 0 12px 0;color:#fff;font-size:14px}
+    .player-select-row{display:flex;gap:16px;margin-bottom:12px;align-items:center}
+    .player-select-row .player-label{width:80px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+    .player-select-row .player-label .dot{width:12px;height:12px;border-radius:50%}
+    .player-select-row .player-label.p1 .dot{background:var(--player1)}
+    .player-select-row .player-label.p2 .dot{background:var(--player2)}
+    .player-select-row input{flex:1;max-width:80px;padding:10px;border-radius:8px;border:2px solid #333;background:#0a0a0c;color:#eee;font-size:16px;font-weight:600;text-transform:uppercase;text-align:center}
+    .player-select-row input:focus{outline:none;border-color:var(--accent)}
+    .player-select-row .player-name{flex:1}
+    .player-select-row .player-name input{max-width:none;text-align:left;font-size:14px;font-weight:400;text-transform:none}
+    
+    .modal-actions{display:flex;gap:12px;margin-top:24px}
+    .modal-actions button{flex:1;padding:14px;font-size:15px}
+    
+    .no-players-detected{text-align:center;padding:30px;background:#1a1a1f;border-radius:10px}
+    .no-players-detected .icon{font-size:48px;margin-bottom:10px}
+    .no-players-detected h4{color:var(--warning);margin:0 0 8px 0}
+    .no-players-detected p{color:#888;margin:0;font-size:13px}
+    
+    #dash-toggle{position:fixed;right:0;top:45%;transform:translateY(-50%);z-index:10000;background:var(--accent);color:#000;padding:12px 14px;border-radius:8px 0 0 8px;cursor:pointer;font-weight:700;transition:all .2s;box-shadow:-4px 0 12px rgba(0,234,255,0.3)}
+    #dash-toggle:hover{padding-right:20px}
+    #dashboard{position:fixed;right:-440px;top:0;width:420px;height:100%;background:var(--panel);box-shadow:-8px 0 24px rgba(0,0,0,0.6);transition:right .35s cubic-bezier(0.4,0,0.2,1);padding:18px;overflow:auto;z-index:9999}
     #dashboard.open{right:0}
     #dashboard::-webkit-scrollbar{width:6px}
     #dashboard::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
     
-    h1{margin-top:0;font-size:1.6em;background:linear-gradient(90deg,var(--accent),var(--success));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    h2{margin:6px 0 12px 0;font-size:1.2em}
+    h1{margin-top:0;font-size:1.8em;background:linear-gradient(90deg,var(--accent),var(--success));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    h2{margin:6px 0 12px 0;font-size:1.3em}
     h3{margin:14px 0 8px 0;font-size:1em;color:#9fb4b9}
     .small{font-size:13px;color:#bfc9d6}
     
-    /* Biomechanics panel */
-    .bio-panel{background:linear-gradient(135deg,#1a0a1a,#0a1a1a);border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #2a1a3a}
-    .bio-panel h4{margin:0 0 12px 0;font-size:13px;color:#b388ff;display:flex;align-items:center;gap:8px}
-    .bio-section{background:#0a0a0c;border-radius:8px;padding:12px;margin-bottom:10px;border-left:3px solid #333}
-    .bio-section.wrist{border-left-color:var(--bio-wrist)}
-    .bio-section.foot{border-left-color:var(--bio-foot)}
-    .bio-section.torso{border-left-color:var(--bio-torso)}
-    .bio-section .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-    .bio-section .title{font-weight:600;font-size:12px;display:flex;align-items:center;gap:6px}
-    .bio-section .title .icon{font-size:14px}
-    .bio-section .score{font-size:18px;font-weight:700}
-    .bio-section .score.excellent{color:var(--success)}
-    .bio-section .score.good{color:var(--accent)}
-    .bio-section .score.fair{color:var(--warning)}
-    .bio-section .score.poor{color:var(--danger)}
-    .bio-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
-    .bio-metric{background:#111;padding:6px 8px;border-radius:4px}
-    .bio-metric .label{font-size:9px;color:#666;margin-bottom:2px}
-    .bio-metric .value{font-size:12px;font-weight:600;color:#fff}
-    .bio-bar{height:4px;background:#1a1a1f;border-radius:2px;margin-top:4px;overflow:hidden}
-    .bio-bar .fill{height:100%;border-radius:2px;transition:width .3s}
+    .tracked-players{display:flex;gap:10px;margin-bottom:14px}
+    .tracked-player-card{flex:1;background:#1a1a1f;border-radius:10px;padding:12px;border:2px solid #333}
+    .tracked-player-card.p1{border-color:var(--player1)}
+    .tracked-player-card.p2{border-color:var(--player2)}
+    .tracked-player-card .header{display:flex;align-items:center;gap:8px}
+    .tracked-player-card .tag{width:28px;height:28px;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;border-radius:6px;color:#000}
+    .tracked-player-card.p1 .tag{background:var(--player1)}
+    .tracked-player-card.p2 .tag{background:var(--player2)}
+    .tracked-player-card .name{font-size:13px;font-weight:600;color:#fff}
+    .tracked-player-card .position{font-size:11px;color:#666}
+    .change-btn{margin-left:auto;background:#222;color:#666;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;border:1px solid #333}
+    .change-btn:hover{border-color:var(--accent);color:var(--accent)}
     
-    /* Stroke stats */
-    .stroke-stats{background:#0a0a0c;border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #1a1a1f}
-    .stroke-stats h4{margin:0 0 10px 0;font-size:13px;color:var(--accent)}
-    .stroke-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    .stroke-stat{text-align:center;background:#111;padding:8px;border-radius:6px}
-    .stroke-stat .value{font-size:18px;font-weight:700;color:var(--accent)}
-    .stroke-stat .label{font-size:9px;color:#666;margin-top:2px}
+    .comparison-section{background:#0a0a0c;border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #1a1a1f}
+    .comparison-section h4{margin:0 0 12px 0;font-size:13px;color:#888}
+    .comparison-row{display:flex;align-items:center;margin-bottom:10px}
+    .comparison-row:last-child{margin-bottom:0}
+    .comparison-row .label{flex:1;text-align:center;font-size:11px;color:#666}
+    .comparison-row .value{width:60px;text-align:center;font-size:16px;font-weight:700}
+    .comparison-row .value.p1{color:var(--player1)}
+    .comparison-row .value.p2{color:var(--player2)}
+    .comparison-row .bar-container{flex:2;height:8px;background:#1a1a1f;border-radius:4px;overflow:hidden;display:flex}
+    .comparison-row .bar{height:100%;transition:width .3s}
+    .comparison-row .bar.p1{background:var(--player1)}
+    .comparison-row .bar.p2{background:var(--player2)}
     
-    /* Timeline */
-    #timeline{background:#070708;border-radius:6px;padding:8px;max-height:280px;overflow:auto;border:1px solid #222}
-    .event{padding:10px;border-bottom:1px solid #1a1a1f;color:#ddd;font-size:12px}
-    .event:last-child{border-bottom:none}
-    .event:hover{background:rgba(0,234,255,0.05)}
-    .event .header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-    .event .player-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-    .event .stroke-type{font-weight:700;flex:1}
-    .event .time{color:#666;font-size:10px}
-    .event .details{display:flex;flex-wrap:wrap;gap:6px}
-    .event .tag{padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600}
-    .event .tag.spin{background:rgba(76,255,193,0.15);color:var(--success)}
-    .event .tag.spin.topspin{background:rgba(255,100,100,0.15);color:#ff6b6b}
-    .event .tag.spin.backspin{background:rgba(100,150,255,0.15);color:#6b9fff}
-    .event .tag.spin.sidespin{background:rgba(255,200,100,0.15);color:#ffc864}
-    .event .tag.speed{background:rgba(0,234,255,0.15);color:var(--accent)}
-    .event .tag.wrist{background:rgba(255,0,255,0.15);color:var(--bio-wrist)}
-    .event .tag.power{background:rgba(255,255,0,0.15);color:var(--bio-torso)}
-    .event .tag.conf{background:rgba(255,255,255,0.1);color:#888}
+    .rally-tracker{background:linear-gradient(135deg,#0a1510,#0d1a15);border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #1a3a2a}
+    .rally-tracker h4{margin:0 0 10px 0;font-size:13px;color:var(--success)}
+    .rally-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .rally-stat{text-align:center;background:#0a0a0c;padding:10px;border-radius:8px}
+    .rally-stat .value{font-size:20px;font-weight:700;color:var(--success)}
+    .rally-stat .label{font-size:10px;color:#666;margin-top:2px}
     
-    /* Charts */
+    .matchup-insights{background:#0d0d10;border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #222}
+    .matchup-insights h4{margin:0 0 10px 0;font-size:13px;color:var(--warning)}
+    .insight{padding:8px 10px;margin-bottom:6px;background:#111;border-radius:6px;font-size:12px;border-left:3px solid var(--warning);color:#ccc}
+    .insight:last-child{margin-bottom:0}
+    .insight .p1-highlight{color:var(--player1);font-weight:600}
+    .insight .p2-highlight{color:var(--player2);font-weight:600}
+    .insight .highlight{color:var(--accent);font-weight:600}
+    
+    .shot-exchange{background:#0a0a0c;border-radius:10px;padding:14px;margin-bottom:14px;border:1px solid #1a1a1f}
+    .shot-exchange h4{margin:0 0 10px 0;font-size:13px;color:#888}
+    .exchange-timeline{max-height:150px;overflow-y:auto}
+    .exchange-item{display:flex;align-items:center;padding:6px 0;border-bottom:1px solid #1a1a1f;font-size:11px}
+    .exchange-item:last-child{border-bottom:none}
+    .exchange-item .time{width:50px;color:#555}
+    .exchange-item .player-indicator{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10px;margin-right:8px}
+    .exchange-item .player-indicator.p1{background:var(--player1);color:#000}
+    .exchange-item .player-indicator.p2{background:var(--player2);color:#000}
+    .exchange-item .stroke-type{flex:1;color:#ccc}
+    .exchange-item .speed{color:var(--success);width:60px;text-align:right}
+    
     .chart-container{background:#0a0a0c;border-radius:8px;padding:12px;margin-bottom:12px;border:1px solid #1a1a1f}
-    canvas.chart{background:transparent;border-radius:6px}
-    
-    /* Status bar */
-    .status-bar{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px;background:#1a1a1f;border-radius:8px}
-    .status-dot{width:10px;height:10px;border-radius:50%;background:#666}
-    .status-dot.active{background:var(--success);animation:pulse 1.5s infinite}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-    
-    /* Settings panel */
-    .settings-panel{background:#1a1a1f;border-radius:8px;padding:12px;margin-top:12px;border:1px solid #333}
-    .settings-panel h4{margin:0 0 10px 0;font-size:13px;color:var(--accent)}
-    .setting-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
-    .setting-row label{flex:1;font-size:12px;color:#999}
-    .setting-row input[type="range"]{flex:2}
-    .setting-row input[type="checkbox"]{width:18px;height:18px}
-    .setting-row span{width:40px;font-size:11px;color:var(--accent)}
-    
-    /* Bio overlay toggles */
-    .bio-toggles{display:flex;gap:6px;margin-top:8px}
-    .bio-toggle{flex:1;padding:6px 10px;border-radius:6px;font-size:11px;text-align:center;cursor:pointer;border:2px solid transparent;transition:all .2s}
-    .bio-toggle.wrist{background:rgba(255,0,255,0.1);border-color:rgba(255,0,255,0.3);color:var(--bio-wrist)}
-    .bio-toggle.foot{background:rgba(0,255,255,0.1);border-color:rgba(0,255,255,0.3);color:var(--bio-foot)}
-    .bio-toggle.torso{background:rgba(255,255,0,0.1);border-color:rgba(255,255,0,0.3);color:var(--bio-torso)}
-    .bio-toggle.active{border-color:currentColor;background:rgba(255,255,255,0.1)}
-    
-    .btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-    .btn-group button{flex:1;min-width:80px}
-    
-    .muted{color:#97a0ac;font-size:13px}
+    canvas{background:transparent;border-radius:6px}
     
     .tabs{display:flex;gap:4px;margin-bottom:12px;background:#0a0a0c;padding:4px;border-radius:8px}
-    .tab{flex:1;padding:8px;text-align:center;background:transparent;color:#666;border-radius:6px;font-size:11px;cursor:pointer;transition:all .2s;border:none}
+    .tab{flex:1;padding:8px;text-align:center;background:transparent;color:#666;border-radius:6px;font-size:12px;cursor:pointer;transition:all .2s}
     .tab.active{background:var(--accent);color:#000}
     .tab-content{display:none}
     .tab-content.active{display:block}
+    
+    .status-bar{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px;background:#1a1a1f;border-radius:8px}
+    .status-dot{width:10px;height:10px;border-radius:50%;background:#666}
+    .status-dot.active{background:var(--success);animation:pulse 1.5s infinite}
+    .status-dot.scanning{background:var(--accent);animation:pulse 0.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    
+    .tracking-settings{background:#1a1a1f;border-radius:8px;padding:12px;margin-top:12px;border:1px solid #333}
+    .tracking-settings h4{margin:0 0 10px 0;font-size:13px;color:var(--accent)}
+    .setting-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+    .setting-row label{flex:1;font-size:12px;color:#999}
+    .setting-row input[type="range"]{flex:2}
+    .setting-row span{width:40px;font-size:11px;color:var(--accent)}
+    
+    button{cursor:pointer;border:none;padding:10px 16px;border-radius:6px;font-weight:600;transition:all .2s}
+    .btn-primary{background:var(--accent);color:#000}
+    .btn-primary:hover{background:#00c8d9}
+    .btn-secondary{background:#222;color:#eee;border:1px solid #333}
+    .btn-secondary:hover{background:#333}
+    .btn-success{background:var(--success);color:#000}
+    .btn-success:hover{background:#3de0a8}
+    .btn-group{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+    
+    .muted{color:#97a0ac;font-size:13px}
     
     @media(max-width:900px){
       .wrap{flex-direction:column}
@@ -149,1025 +175,1140 @@
       #dashboard{width:100%;right:-100%}
     }
   </style>
-  
-  <!-- Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/pose.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
+  <div id="player-detect-modal">
+    <div class="modal-content">
+      <div id="scanning-state" class="scanning-state">
+        <div class="spinner"></div>
+        <h3>Scanning Video for Players...</h3>
+        <p>Analyzing multiple frames to detect players</p>
+        <div class="scan-progress" id="scan-progress">Initializing...</div>
+      </div>
+      
+      <div id="detection-results" class="detection-results">
+        <h2>👥 <span id="modal-title">Select Players to Track</span></h2>
+        <p id="modal-desc">Click on players below or enter their tag letter to select.</p>
+        
+        <div class="video-preview-container">
+          <video id="preview-video" muted></video>
+          <canvas id="preview-overlay"></canvas>
+        </div>
+        
+        <div class="player-tags-info">
+          <h4>Detected Players (click to select):</h4>
+          <div class="detected-players-list" id="detected-players-list"></div>
+        </div>
+        
+        <div id="single-player-select" class="multi-player-select">
+          <h4>Selected Player:</h4>
+          <div class="player-select-row">
+            <div class="player-label p1"><span class="dot"></span> Player</div>
+            <input type="text" id="single-tag-input" class="p1" maxlength="1" placeholder="A" />
+            <div class="player-name">
+              <input type="text" id="single-name-input" placeholder="Player name (optional)" />
+            </div>
+          </div>
+        </div>
+        
+        <div id="multi-player-select" class="multi-player-select" style="display:none">
+          <h4>Select Two Players:</h4>
+          <div class="player-select-row">
+            <div class="player-label p1"><span class="dot"></span> Player 1</div>
+            <input type="text" id="p1-tag-input" class="p1" maxlength="1" placeholder="A" />
+            <div class="player-name">
+              <input type="text" id="p1-name-input" placeholder="Name (optional)" />
+            </div>
+          </div>
+          <div class="player-select-row">
+            <div class="player-label p2"><span class="dot"></span> Player 2</div>
+            <input type="text" id="p2-tag-input" class="p2" maxlength="1" placeholder="B" />
+            <div class="player-name">
+              <input type="text" id="p2-name-input" placeholder="Name (optional)" />
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-actions">
+          <button class="btn-secondary" id="rescan-btn">🔄 Rescan</button>
+          <button class="btn-secondary" id="cancel-detect-btn">Cancel</button>
+          <button class="btn-success" id="confirm-players-btn">Start Analysis</button>
+        </div>
+      </div>
+      
+      <div id="no-players-state" class="no-players-detected" style="display:none">
+        <div class="icon">😕</div>
+        <h4>No Players Detected</h4>
+        <p>Could not detect players. You can manually specify player positions or try rescanning.</p>
+        <div class="modal-actions" style="margin-top:20px">
+          <button class="btn-primary" id="retry-scan-btn">Try Again</button>
+          <button class="btn-success" id="manual-select-btn">Manual Selection</button>
+          <button class="btn-secondary" id="cancel-no-players-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="dash-toggle">📊 Analytics</div>
   <div id="dashboard" aria-hidden="true">
-    <h2>Biomechanics Dashboard</h2>
-    <div class="small">Advanced stroke & movement analysis</div>
+    <h2 id="dashboard-title">Session Dashboard</h2>
+    <div class="small" id="dashboard-subtitle">Real-time analytics</div>
 
-    <!-- Tabs -->
+    <div class="tracked-players" id="tracked-players-display" style="display:none">
+      <div class="tracked-player-card p1">
+        <div class="header">
+          <div class="tag" id="p1-tag-display">A</div>
+          <div>
+            <div class="name" id="p1-name-display">Player 1</div>
+            <div class="position" id="p1-pos-display">Left Side</div>
+          </div>
+          <button class="change-btn" id="change-players-btn">Change</button>
+        </div>
+      </div>
+      <div class="tracked-player-card p2">
+        <div class="header">
+          <div class="tag" id="p2-tag-display">B</div>
+          <div>
+            <div class="name" id="p2-name-display">Player 2</div>
+            <div class="position" id="p2-pos-display">Right Side</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tracked-player-card p1" id="single-player-display" style="display:none;margin-bottom:14px">
+      <div class="header">
+        <div class="tag" id="single-tag-display">A</div>
+        <div>
+          <div class="name" id="single-name-display">Player</div>
+          <div class="position" id="single-pos-display">Position</div>
+        </div>
+        <button class="change-btn" id="change-single-btn">Change</button>
+      </div>
+    </div>
+
     <div class="tabs">
-      <button class="tab active" data-tab="strokes">🏓 Strokes</button>
-      <button class="tab" data-tab="biomechanics">🦴 Bio</button>
-      <button class="tab" data-tab="charts">📈 Charts</button>
+      <div class="tab active" data-tab="comparison">Comparison</div>
+      <div class="tab" data-tab="individual">Individual</div>
+      <div class="tab" data-tab="matchup">Matchup</div>
     </div>
 
-    <!-- Strokes Tab -->
-    <div id="tab-strokes" class="tab-content active">
-      <div class="stroke-stats">
-        <h4>🏓 Stroke Statistics</h4>
-        <div class="stroke-grid">
-          <div class="stroke-stat">
-            <div class="value" id="total-strokes">0</div>
-            <div class="label">Total Strokes</div>
+    <div id="tab-comparison" class="tab-content active">
+      <div class="rally-tracker">
+        <h4>🏓 Rally Statistics</h4>
+        <div class="rally-stats">
+          <div class="rally-stat">
+            <div class="value" id="current-rally">0</div>
+            <div class="label">Current Rally</div>
           </div>
-          <div class="stroke-stat">
-            <div class="value" id="fh-count">0</div>
-            <div class="label">Forehand</div>
+          <div class="rally-stat">
+            <div class="value" id="longest-rally">0</div>
+            <div class="label">Longest Rally</div>
           </div>
-          <div class="stroke-stat">
-            <div class="value" id="bh-count">0</div>
-            <div class="label">Backhand</div>
-          </div>
-          <div class="stroke-stat">
-            <div class="value" id="topspin-count">0</div>
-            <div class="label">Topspin</div>
-          </div>
-          <div class="stroke-stat">
-            <div class="value" id="backspin-count">0</div>
-            <div class="label">Backspin</div>
-          </div>
-          <div class="stroke-stat">
-            <div class="value" id="avg-speed">--</div>
-            <div class="label">Avg Speed</div>
+          <div class="rally-stat">
+            <div class="value" id="total-exchanges">0</div>
+            <div class="label">Total Exchanges</div>
           </div>
         </div>
       </div>
 
-      <h3>Event Timeline</h3>
-      <div id="timeline"><div class="muted">Strokes will appear here during analysis...</div></div>
-    </div>
+      <div class="comparison-section">
+        <h4>📊 Head-to-Head</h4>
+        <div class="comparison-row">
+          <div class="value p1" id="p1-strokes">0</div>
+          <div class="bar-container">
+            <div class="bar p1" id="p1-strokes-bar" style="width:50%"></div>
+            <div class="bar p2" id="p2-strokes-bar" style="width:50%"></div>
+          </div>
+          <div class="value p2" id="p2-strokes">0</div>
+        </div>
+        <div class="comparison-row"><div class="label">Total Strokes</div></div>
 
-    <!-- Biomechanics Tab -->
-    <div id="tab-biomechanics" class="tab-content">
-      <div class="bio-panel">
-        <h4>🎯 Real-time Biomechanics</h4>
-        
-        <!-- Wrist Snap Section -->
-        <div class="bio-section wrist">
-          <div class="header">
-            <div class="title"><span class="icon">🖐️</span> Wrist Snap (Spin)</div>
-            <div class="score good" id="wrist-score">--</div>
+        <div class="comparison-row" style="margin-top:12px">
+          <div class="value p1" id="p1-speed">0</div>
+          <div class="bar-container">
+            <div class="bar p1" id="p1-speed-bar" style="width:50%"></div>
+            <div class="bar p2" id="p2-speed-bar" style="width:50%"></div>
           </div>
-          <div class="bio-metrics">
-            <div class="bio-metric">
-              <div class="label">Angular Velocity</div>
-              <div class="value" id="wrist-angular-vel">-- °/s</div>
-            </div>
-            <div class="bio-metric">
-              <div class="label">Spin Potential</div>
-              <div class="value" id="wrist-spin">--</div>
-            </div>
-          </div>
-          <div class="bio-bar"><div class="fill" id="wrist-bar" style="width:0%;background:var(--bio-wrist)"></div></div>
+          <div class="value p2" id="p2-speed">0</div>
         </div>
-        
-        <!-- Footwork Section -->
-        <div class="bio-section foot">
-          <div class="header">
-            <div class="title"><span class="icon">👟</span> Footwork</div>
-            <div class="score good" id="foot-score">--</div>
+        <div class="comparison-row"><div class="label">Avg Speed</div></div>
+
+        <div class="comparison-row" style="margin-top:12px">
+          <div class="value p1" id="p1-consistency">0%</div>
+          <div class="bar-container">
+            <div class="bar p1" id="p1-cons-bar" style="width:50%"></div>
+            <div class="bar p2" id="p2-cons-bar" style="width:50%"></div>
           </div>
-          <div class="bio-metrics">
-            <div class="bio-metric">
-              <div class="label">Pattern</div>
-              <div class="value" id="foot-pattern">--</div>
-            </div>
-            <div class="bio-metric">
-              <div class="label">Balance</div>
-              <div class="value" id="foot-balance">--</div>
-            </div>
-          </div>
-          <div class="bio-bar"><div class="fill" id="foot-bar" style="width:0%;background:var(--bio-foot)"></div></div>
+          <div class="value p2" id="p2-consistency">0%</div>
         </div>
-        
-        <!-- Torso/Hip Section -->
-        <div class="bio-section torso">
-          <div class="header">
-            <div class="title"><span class="icon">🔄</span> Body Rotation</div>
-            <div class="score good" id="torso-score">--</div>
+        <div class="comparison-row"><div class="label">Consistency</div></div>
+
+        <div class="comparison-row" style="margin-top:12px">
+          <div class="value p1" id="p1-fh">0</div>
+          <div class="bar-container">
+            <div class="bar p1" id="p1-fh-bar" style="width:50%"></div>
+            <div class="bar p2" id="p2-fh-bar" style="width:50%"></div>
           </div>
-          <div class="bio-metrics">
-            <div class="bio-metric">
-              <div class="label">X-Factor</div>
-              <div class="value" id="torso-xfactor">-- °</div>
-            </div>
-            <div class="bio-metric">
-              <div class="label">Power Transfer</div>
-              <div class="value" id="torso-power">--%</div>
-            </div>
-          </div>
-          <div class="bio-bar"><div class="fill" id="torso-bar" style="width:0%;background:var(--bio-torso)"></div></div>
+          <div class="value p2" id="p2-fh">0</div>
         </div>
+        <div class="comparison-row"><div class="label">Forehand</div></div>
+
+        <div class="comparison-row" style="margin-top:12px">
+          <div class="value p1" id="p1-bh">0</div>
+          <div class="bar-container">
+            <div class="bar p1" id="p1-bh-bar" style="width:50%"></div>
+            <div class="bar p2" id="p2-bh-bar" style="width:50%"></div>
+          </div>
+          <div class="value p2" id="p2-bh">0</div>
+        </div>
+        <div class="comparison-row"><div class="label">Backhand</div></div>
       </div>
 
-      <!-- Overlay Toggles -->
-      <div style="margin-bottom:14px">
-        <div class="small" style="margin-bottom:6px">Visual Overlays:</div>
-        <div class="bio-toggles">
-          <div class="bio-toggle wrist active" id="toggle-wrist">🖐️ Wrist</div>
-          <div class="bio-toggle foot active" id="toggle-foot">👟 Feet</div>
-          <div class="bio-toggle torso active" id="toggle-torso">🔄 Torso</div>
+      <div class="shot-exchange">
+        <h4>🔄 Recent Exchanges</h4>
+        <div class="exchange-timeline" id="exchange-timeline">
+          <div class="muted" style="padding:10px;text-align:center">No exchanges yet</div>
         </div>
       </div>
     </div>
 
-    <!-- Charts Tab -->
-    <div id="tab-charts" class="tab-content">
-      <h3>Stroke Distribution</h3>
+    <div id="tab-individual" class="tab-content">
+      <h3>Player 1 (<span id="ind-p1-tag">A</span>) Strokes</h3>
       <div class="chart-container">
-        <canvas id="strokeChart" class="chart" height="120"></canvas>
+        <canvas id="p1-stroke-chart" height="100"></canvas>
       </div>
       
-      <h3>Spin Distribution</h3>
+      <h3>Player 2 (<span id="ind-p2-tag">B</span>) Strokes</h3>
       <div class="chart-container">
-        <canvas id="spinChart" class="chart" height="120"></canvas>
+        <canvas id="p2-stroke-chart" height="100"></canvas>
       </div>
-      
-      <h3>Speed Over Time</h3>
+
+      <h3>Speed Comparison</h3>
       <div class="chart-container">
-        <canvas id="speedChart" class="chart" height="100"></canvas>
+        <canvas id="speed-comparison-chart" height="120"></canvas>
       </div>
     </div>
 
-    <!-- Export -->
+    <div id="tab-matchup" class="tab-content">
+      <div class="matchup-insights">
+        <h4>🎯 Matchup Insights</h4>
+        <div id="matchup-insights-list">
+          <div class="insight">Play more rallies to generate insights...</div>
+        </div>
+      </div>
+
+      <div class="comparison-section">
+        <h4>📈 Dominance</h4>
+        <div class="comparison-row">
+          <div class="value p1" id="p1-dominance">50%</div>
+          <div class="bar-container">
+            <div class="bar p1" id="p1-dom-bar" style="width:50%"></div>
+            <div class="bar p2" id="p2-dom-bar" style="width:50%"></div>
+          </div>
+          <div class="value p2" id="p2-dominance">50%</div>
+        </div>
+        <div class="comparison-row"><div class="label">Rally Control</div></div>
+      </div>
+    </div>
+
     <div class="btn-group" style="margin-top:18px">
-      <button id="export-json" class="secondary">📄 JSON</button>
-      <button id="export-pdf" class="secondary">📑 PDF</button>
-      <button id="btn-reset" class="danger">🔄 Reset</button>
+      <button class="btn-primary" id="export-json">📄 JSON</button>
+      <button class="btn-primary" id="export-pdf">📑 PDF</button>
+      <button class="btn-secondary" id="reset-session">🔄 Reset</button>
     </div>
   </div>
 
   <div class="wrap">
     <div class="left">
-      <h1>🏓 Table Tennis Analyzer — Biomechanics Edition</h1>
+      <h1>🏓 Table Tennis Analyzer</h1>
       <div class="controls">
         <input id="videoUpload" type="file" accept="video/*" />
-        <button id="btn-start" disabled>▶️ Start Analysis</button>
-        <button id="btn-pause" class="secondary" disabled>⏸️ Pause</button>
-        <button id="toggle-skeleton" class="secondary active">🦴 Skeleton</button>
-        <button id="toggle-bio-overlay" class="secondary active">📐 Bio Overlay</button>
+        <div class="mode-toggle">
+          <button id="single-mode-btn" class="active">Single</button>
+          <button id="multi-mode-btn">Multi-Player</button>
+        </div>
+        <button id="start-analysis-btn" disabled>▶️ Start</button>
+        <button id="toggle-tracking">🎾 Ball: ON</button>
       </div>
-
-      <div id="videoContainer" style="position:relative;">
+      <div class="video-container">
         <video id="video" controls></video>
-        <canvas id="overlay"></canvas>
-        <canvas id="bio-overlay"></canvas>
-        <div id="feedback-panel"></div>
+        <canvas id="overlay-canvas"></canvas>
       </div>
-
+      
       <div class="status-bar">
         <div class="status-dot" id="status-dot"></div>
         <span id="status">Upload a video to begin</span>
       </div>
 
-      <div class="settings-panel">
-        <h4>🎛️ Settings</h4>
+      <div class="tracking-settings">
+        <h4>🎾 Ball Detection</h4>
         <div class="setting-row">
-          <label>Stroke Sensitivity</label>
-          <input type="range" id="sensitivity" min="1" max="100" value="50" />
-          <span id="sensitivity-val">50</span>
+          <label>Orange Sensitivity</label>
+          <input type="range" id="orange-sens" min="0" max="100" value="50" />
+          <span id="orange-sens-val">50</span>
         </div>
         <div class="setting-row">
-          <label>Show Tips</label>
-          <input type="checkbox" id="show-tips" checked />
+          <label>White Sensitivity</label>
+          <input type="range" id="white-sens" min="0" max="100" value="50" />
+          <span id="white-sens-val">50</span>
         </div>
       </div>
     </div>
   </div>
 
-<script>
-/* ============================================
-   CONFIGURATION
-   ============================================ */
-const CONFIG = {
-  FPS: 30,
-  STROKE_COOLDOWN_MS: 350,
-  MIN_VELOCITY: 0.012,
-  SMASH_VELOCITY: 0.07,
-  LOOP_VELOCITY: 0.035,
-  FEEDBACK_DURATION: 3500,
-  
-  WRIST_SNAP: { EXCELLENT: 700, GOOD: 450, FAIR: 250 },
-  TORSO: { EXCELLENT_ROTATION: 40, GOOD_ROTATION: 25 }
-};
+  <script type="module">
+    const CONFIG = {
+      STROKE_COOLDOWN: 0.25,
+      SPEED_THRESHOLD_MULT: 2.5,
+      FPS: 30,
+      BALL_TRACKING: { orangeSensitivity: 50, whiteSensitivity: 50, minBallSize: 15, maxBallSize: 60, trailLength: 20, searchRadius: 100 },
+      PIXELS_TO_METERS: 0.003
+    };
 
-/* ============================================
-   STATE
-   ============================================ */
-const state = {
-  sessionActive: false,
-  showSkeleton: true,
-  showBioOverlay: true,
-  showTips: true,
-  
-  overlayToggles: { wrist: true, foot: true, torso: true },
-  
-  latestLandmarks: null,
-  prevLandmarks: null,
-  
-  // Stroke tracking
-  strokes: [],
-  lastStrokeTime: 0,
-  
-  // Biomechanics
-  biomechanics: {
-    wrist: { angularVelocity: 0, spinPotential: 'Low', score: 0, history: [] },
-    footwork: { pattern: 'None', balance: 0, score: 0, patterns: { crossover: 0, shuffle: 0, splitStep: 0, recovery: 0 } },
-    torso: { hipRotation: 0, shoulderRotation: 0, xFactor: 0, powerTransfer: 0, score: 0 }
-  },
-  
-  // Wrist history for analysis
-  wristHistory: { R: [], L: [] },
-  ankleHistory: { R: [], L: [] },
-  shoulderHistory: [],
-  hipHistory: [],
-  
-  prevWrist: { R: null, L: null },
-  
-  frameCount: 0,
-  lastFeedbackTime: 0
-};
+    const state = {
+      isMultiPlayerMode: false,
+      detectedPlayers: [],
+      player1: { index: -1, tag: '', name: 'Player 1', position: '', centerX: 0.25, prevWrist: null, speedSamples: [], strokes: [], strokeDistribution: {}, lastStrokeTime: 0, consistency: 100 },
+      player2: { index: -1, tag: '', name: 'Player 2', position: '', centerX: 0.75, prevWrist: null, speedSamples: [], strokes: [], strokeDistribution: {}, lastStrokeTime: 0, consistency: 100 },
+      isPlayerSelected: false,
+      currentRally: 0,
+      longestRally: 0,
+      totalExchanges: 0,
+      lastStrokePlayer: null,
+      exchanges: [],
+      ballTrackingEnabled: true,
+      ballTrajectory: [],
+      lastBallPosition: null,
+      prevFrameData: null,
+      ballSpeeds: [],
+      frameCount: 0,
+      processingCanvas: null,
+      processingCtx: null,
+      isAnalyzing: false,
+      videoLoaded: false,
+      poseDetector: null,
+      latestPoses: [],
+      poseDetectorReady: false
+    };
 
-/* ============================================
-   DOM REFERENCES
-   ============================================ */
-const video = document.getElementById('video');
-const overlay = document.getElementById('overlay');
-const bioOverlay = document.getElementById('bio-overlay');
-const overlayCtx = overlay.getContext('2d');
-const bioCtx = bioOverlay.getContext('2d');
-const statusEl = document.getElementById('status');
-const statusDot = document.getElementById('status-dot');
-const feedbackPanel = document.getElementById('feedback-panel');
-const dashboard = document.getElementById('dashboard');
-const timelineEl = document.getElementById('timeline');
+    const video = document.getElementById('video');
+    const upload = document.getElementById('videoUpload');
+    const statusEl = document.getElementById('status');
+    const statusDot = document.getElementById('status-dot');
+    const dashboard = document.getElementById('dashboard');
+    const overlayCanvas = document.getElementById('overlay-canvas');
+    const overlayCtx = overlayCanvas.getContext('2d');
+    const playerDetectModal = document.getElementById('player-detect-modal');
+    const scanningState = document.getElementById('scanning-state');
+    const detectionResults = document.getElementById('detection-results');
+    const noPlayersState = document.getElementById('no-players-state');
+    const previewVideo = document.getElementById('preview-video');
+    const previewOverlay = document.getElementById('preview-overlay');
+    const previewOverlayCtx = previewOverlay.getContext('2d');
+    const trackedPlayersDisplay = document.getElementById('tracked-players-display');
+    const singlePlayerDisplay = document.getElementById('single-player-display');
+    const startAnalysisBtn = document.getElementById('start-analysis-btn');
+    const scanProgress = document.getElementById('scan-progress');
 
-/* ============================================
-   CHARTS
-   ============================================ */
-const strokeChart = new Chart(document.getElementById('strokeChart').getContext('2d'), {
-  type: 'bar',
-  data: {
-    labels: ['FH Loop', 'BH Loop', 'FH Drive', 'BH Drive', 'Smash', 'Block', 'Chop', 'Flip'],
-    datasets: [{ label: 'Count', data: [0,0,0,0,0,0,0,0], backgroundColor: '#00eaff' }]
-  },
-  options: { animation: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#1a1a1f' }, ticks: { color: '#666' } }, x: { grid: { display: false }, ticks: { color: '#888', font: { size: 9 } } } } }
-});
+    state.processingCanvas = document.createElement('canvas');
+    state.processingCtx = state.processingCanvas.getContext('2d', { willReadFrequently: true });
 
-const spinChart = new Chart(document.getElementById('spinChart').getContext('2d'), {
-  type: 'doughnut',
-  data: {
-    labels: ['Topspin', 'Backspin', 'Sidespin', 'Neutral'],
-    datasets: [{ data: [0,0,0,0], backgroundColor: ['#ff6b6b', '#6b9fff', '#ffc864', '#888'] }]
-  },
-  options: { animation: false, plugins: { legend: { labels: { color: '#888', font: { size: 10 } } } } }
-});
+    // Charts
+    const p1StrokeChart = new Chart(document.getElementById('p1-stroke-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: { labels: ['FH Loop','BH Loop','FH Chop','BH Chop','Smash','Block'], datasets: [{ data: [0,0,0,0,0,0], backgroundColor: ['#00eaff','#00b8cc','#008899','#006677','#004455','#003344'], borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
 
-const speedChart = new Chart(document.getElementById('speedChart').getContext('2d'), {
-  type: 'line',
-  data: { labels: [], datasets: [{ label: 'Speed', data: [], borderColor: '#00eaff', backgroundColor: 'rgba(0,234,255,0.1)', fill: true, tension: 0.4 }] },
-  options: { animation: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#1a1a1f' }, ticks: { color: '#666' } }, x: { display: false } } }
-});
+    const p2StrokeChart = new Chart(document.getElementById('p2-stroke-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: { labels: ['FH Loop','BH Loop','FH Chop','BH Chop','Smash','Block'], datasets: [{ data: [0,0,0,0,0,0], backgroundColor: ['#ff6b9d','#e0557d','#c0405d','#a02a3d','#80151d','#600000'], borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
 
-/* ============================================
-   UTILITY FUNCTIONS
-   ============================================ */
-function calculateAngle(p1, p2, p3) {
-  if (!p1 || !p2 || !p3) return 0;
-  const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
-  const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
-  const dot = v1.x * v2.x + v1.y * v2.y;
-  const mag = Math.sqrt(v1.x**2 + v1.y**2) * Math.sqrt(v2.x**2 + v2.y**2);
-  if (mag === 0) return 0;
-  return Math.acos(Math.min(1, Math.max(-1, dot / mag))) * 180 / Math.PI;
-}
+    const speedCompChart = new Chart(document.getElementById('speed-comparison-chart').getContext('2d'), {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'P1', data: [], borderColor: '#00eaff', backgroundColor: 'rgba(0,234,255,0.1)', fill: true, tension: 0.4 },
+        { label: 'P2', data: [], borderColor: '#ff6b9d', backgroundColor: 'rgba(255,107,157,0.1)', fill: true, tension: 0.4 }
+      ]},
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#888', font: { size: 10 } } } }, scales: { x: { display: false }, y: { beginAtZero: true, grid: { color: '#1a1a1f' }, ticks: { color: '#666' } } } }
+    });
 
-function calculateRotation(p1, p2) {
-  if (!p1 || !p2) return 0;
-  return Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
-}
+    // Mode Toggle
+    document.getElementById('single-mode-btn').addEventListener('click', () => {
+      state.isMultiPlayerMode = false;
+      document.getElementById('single-mode-btn').classList.add('active');
+      document.getElementById('multi-mode-btn').classList.remove('active');
+    });
+    document.getElementById('multi-mode-btn').addEventListener('click', () => {
+      state.isMultiPlayerMode = true;
+      document.getElementById('multi-mode-btn').classList.add('active');
+      document.getElementById('single-mode-btn').classList.remove('active');
+    });
 
-function getScoreClass(score) {
-  if (score >= 80) return 'excellent';
-  if (score >= 60) return 'good';
-  if (score >= 40) return 'fair';
-  return 'poor';
-}
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+      });
+    });
 
-/* ============================================
-   SPIN CLASSIFICATION
-   ============================================ */
-function classifySpin(wristDy, elbowAngle, angularVelocity, wristHistory) {
-  // Analyze wrist movement pattern for spin type
-  let spinType = 'Neutral';
-  let spinDegree = 0;
-  
-  if (wristHistory.length < 3) return { type: spinType, degree: spinDegree };
-  
-  const recentY = wristHistory.slice(-5).map(w => w.y);
-  const avgDy = recentY.length > 1 ? (recentY[recentY.length-1] - recentY[0]) / recentY.length : 0;
-  
-  // Check for lateral movement (sidespin)
-  const recentX = wristHistory.slice(-5).map(w => w.x);
-  const avgDx = recentX.length > 1 ? Math.abs(recentX[recentX.length-1] - recentX[0]) / recentX.length : 0;
-  
-  // Topspin: wrist moves upward with brush motion
-  if (avgDy < -0.008 && angularVelocity > 200) {
-    spinType = 'Topspin';
-    spinDegree = Math.min(100, Math.round(angularVelocity / 8 + Math.abs(avgDy) * 3000));
-  }
-  // Backspin: wrist moves downward with slice motion
-  else if (avgDy > 0.005 && elbowAngle > 100) {
-    spinType = 'Backspin';
-    spinDegree = Math.min(100, Math.round(angularVelocity / 10 + avgDy * 2500));
-  }
-  // Sidespin: significant lateral movement
-  else if (avgDx > 0.012 && angularVelocity > 150) {
-    spinType = 'Sidespin';
-    spinDegree = Math.min(100, Math.round(angularVelocity / 9 + avgDx * 2000));
-  }
-  // Some spin present
-  else if (angularVelocity > 300) {
-    spinType = avgDy < 0 ? 'Topspin' : 'Backspin';
-    spinDegree = Math.min(60, Math.round(angularVelocity / 12));
-  }
-  
-  return { type: spinType, degree: Math.max(0, spinDegree) };
-}
+    document.getElementById('dash-toggle').addEventListener('click', () => dashboard.classList.toggle('open'));
 
-/* ============================================
-   STROKE CLASSIFICATION
-   ============================================ */
-function classifyStroke(wrist, elbow, shoulder, velocity, elbowAngle, wristDy, spin) {
-  const isForehand = elbow && wrist ? wrist.x > elbow.x : true;
-  const side = isForehand ? 'FH' : 'BH';
-  
-  let strokeType = 'Push';
-  let subtype = '';
-  
-  // Smash detection
-  if (velocity > CONFIG.SMASH_VELOCITY && elbowAngle > 130 && wristDy > 0.01) {
-    strokeType = 'Smash';
-    subtype = '';
-  }
-  // Loop detection (upward brushing motion with speed)
-  else if (velocity > CONFIG.LOOP_VELOCITY && wristDy < -0.005 && spin.type === 'Topspin') {
-    strokeType = `${side} Loop`;
-    subtype = spin.degree > 60 ? 'Heavy' : '';
-  }
-  // Drive detection (forward motion)
-  else if (velocity > CONFIG.LOOP_VELOCITY * 0.8 && Math.abs(wristDy) < 0.01) {
-    strokeType = `${side} Drive`;
-  }
-  // Chop detection (downward slice)
-  else if (wristDy > 0.01 && spin.type === 'Backspin' && velocity < CONFIG.LOOP_VELOCITY) {
-    strokeType = `${side} Chop`;
-  }
-  // Block detection (minimal movement)
-  else if (velocity < CONFIG.MIN_VELOCITY * 2) {
-    strokeType = 'Block';
-  }
-  // Flip detection (quick wrist action over table)
-  else if (velocity > CONFIG.MIN_VELOCITY * 1.5 && elbowAngle < 90 && spin.degree > 30) {
-    strokeType = 'Flip';
-  }
-  // Default to push/drive
-  else {
-    strokeType = velocity > CONFIG.LOOP_VELOCITY * 0.6 ? `${side} Drive` : `${side} Push`;
-  }
-  
-  return { type: strokeType, subtype, side: isForehand ? 'FH' : 'BH' };
-}
+    // Settings
+    ['orange-sens', 'white-sens'].forEach(id => {
+      document.getElementById(id).addEventListener('input', e => {
+        document.getElementById(`${id}-val`).textContent = e.target.value;
+        if (id === 'orange-sens') CONFIG.BALL_TRACKING.orangeSensitivity = parseInt(e.target.value);
+        if (id === 'white-sens') CONFIG.BALL_TRACKING.whiteSensitivity = parseInt(e.target.value);
+      });
+    });
 
-/* ============================================
-   STROKE DETECTION & BIOMECHANICS
-   ============================================ */
-function detectStroke(landmarks, currentTime) {
-  if (!landmarks || landmarks.length < 17) return null;
-  
-  const now = performance.now();
-  if (now - state.lastStrokeTime < CONFIG.STROKE_COOLDOWN_MS) return null;
-  
-  const sensitivity = parseInt(document.getElementById('sensitivity').value) / 100;
-  const velocityThreshold = CONFIG.MIN_VELOCITY * (1.5 - sensitivity);
-  
-  const RW = landmarks[16], RE = landmarks[14], RS = landmarks[12];
-  const LW = landmarks[15], LE = landmarks[13], LS = landmarks[11];
-  const LH = landmarks[23], RH = landmarks[24];
-  const LA = landmarks[27], RA = landmarks[28];
-  
-  let detectedStroke = null;
-  
-  ['R', 'L'].forEach(side => {
-    const wrist = side === 'R' ? RW : LW;
-    const elbow = side === 'R' ? RE : LE;
-    const shoulder = side === 'R' ? RS : LS;
-    
-    if (!wrist || !elbow || wrist.visibility < 0.5) return;
-    
-    const prev = state.prevWrist[side];
-    if (!prev) {
-      state.prevWrist[side] = { x: wrist.x, y: wrist.y, t: now };
-      return;
-    }
-    
-    const dx = wrist.x - prev.x;
-    const dy = wrist.y - prev.y;
-    const velocity = Math.sqrt(dx*dx + dy*dy);
-    
-    // Store wrist history
-    state.wristHistory[side].push({ x: wrist.x, y: wrist.y, t: now, angle: calculateRotation(elbow, wrist) });
-    if (state.wristHistory[side].length > 20) state.wristHistory[side].shift();
-    
-    state.prevWrist[side] = { x: wrist.x, y: wrist.y, t: now };
-    
-    if (velocity < velocityThreshold) return;
-    
-    // Calculate biomechanics
-    const elbowAngle = calculateAngle(shoulder, elbow, wrist);
-    
-    // Wrist angular velocity
-    const wristHist = state.wristHistory[side];
-    let angularVelocity = 0;
-    if (wristHist.length >= 3) {
-      const recent = wristHist.slice(-4);
-      let totalAngleChange = 0;
-      for (let i = 1; i < recent.length; i++) {
-        totalAngleChange += Math.abs(recent[i].angle - recent[i-1].angle);
+    const PLAYER_TAGS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+    function showPlayerDetectionModal() {
+      playerDetectModal.classList.add('active');
+      scanningState.style.display = 'block';
+      detectionResults.classList.remove('active');
+      noPlayersState.style.display = 'none';
+      
+      if (state.isMultiPlayerMode) {
+        document.getElementById('modal-title').textContent = 'Select Two Players';
+        document.getElementById('modal-desc').textContent = 'Select two players for comparison analysis.';
+        document.getElementById('single-player-select').style.display = 'none';
+        document.getElementById('multi-player-select').style.display = 'block';
+      } else {
+        document.getElementById('modal-title').textContent = 'Select Player';
+        document.getElementById('modal-desc').textContent = 'Select the player to analyze.';
+        document.getElementById('single-player-select').style.display = 'block';
+        document.getElementById('multi-player-select').style.display = 'none';
       }
-      const timeSpan = (recent[recent.length-1].t - recent[0].t) / 1000;
-      angularVelocity = timeSpan > 0 ? totalAngleChange / timeSpan : 0;
+      
+      previewVideo.src = video.src;
+      previewVideo.currentTime = Math.min(1, video.duration / 2);
+      previewVideo.onloadeddata = () => {
+        previewOverlay.width = previewVideo.videoWidth;
+        previewOverlay.height = previewVideo.videoHeight;
+        scanForPlayers();
+      };
     }
-    
-    // Classify spin
-    const spin = classifySpin(dy, elbowAngle, angularVelocity, wristHist);
-    
-    // Classify stroke
-    const strokeClass = classifyStroke(wrist, elbow, shoulder, velocity, elbowAngle, dy, spin);
-    
-    // Calculate torso rotation
-    let xFactor = 0, powerTransfer = 0;
-    if (LS && RS && LH && RH) {
-      const shoulderRot = Math.abs(calculateRotation(LS, RS));
-      const hipRot = Math.abs(calculateRotation(LH, RH));
-      xFactor = Math.abs(shoulderRot - hipRot);
+
+    function hidePlayerDetectionModal() { playerDetectModal.classList.remove('active'); }
+
+    async function initPoseDetector() {
+      if (state.poseDetectorReady) return;
       
-      // Store for power transfer calc
-      state.shoulderHistory.push({ angle: shoulderRot, t: now });
-      state.hipHistory.push({ angle: hipRot, t: now });
-      if (state.shoulderHistory.length > 15) state.shoulderHistory.shift();
-      if (state.hipHistory.length > 15) state.hipHistory.shift();
+      scanProgress.textContent = 'Loading pose detection model...';
       
-      // Calculate power transfer (hip leads shoulder)
-      if (state.hipHistory.length >= 3) {
-        let hipLeads = 0;
-        for (let i = 1; i < Math.min(state.hipHistory.length, state.shoulderHistory.length); i++) {
-          const hipChange = Math.abs(state.hipHistory[i].angle - state.hipHistory[i-1].angle);
-          const shoulderChange = Math.abs(state.shoulderHistory[i].angle - state.shoulderHistory[i-1].angle);
-          if (hipChange > shoulderChange * 0.4) hipLeads++;
-        }
-        powerTransfer = Math.min(100, Math.round(hipLeads / (state.hipHistory.length - 1) * 70 + xFactor * 1.5));
-      }
-    }
-    
-    // Footwork pattern
-    let footPattern = 'Stationary';
-    if (LA && RA && LA.visibility > 0.5 && RA.visibility > 0.5) {
-      state.ankleHistory.L.push({ x: LA.x, y: LA.y, t: now });
-      state.ankleHistory.R.push({ x: RA.x, y: RA.y, t: now });
-      if (state.ankleHistory.L.length > 15) state.ankleHistory.L.shift();
-      if (state.ankleHistory.R.length > 15) state.ankleHistory.R.shift();
-      
-      if (state.ankleHistory.L.length >= 5) {
-        const lHist = state.ankleHistory.L;
-        const rHist = state.ankleHistory.R;
-        const lMove = Math.abs(lHist[lHist.length-1].x - lHist[0].x);
-        const rMove = Math.abs(rHist[rHist.length-1].x - rHist[0].x);
+      try {
+        // Load MediaPipe Pose
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
         
-        if (lMove > 0.05 || rMove > 0.05) {
-          if (Math.sign(lHist[lHist.length-1].x - lHist[0].x) === Math.sign(rHist[rHist.length-1].x - rHist[0].x)) {
-            footPattern = 'Shuffle';
-            state.biomechanics.footwork.patterns.shuffle++;
+        scanProgress.textContent = 'Initializing pose detector...';
+        
+        state.poseDetector = new window.Pose({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`
+        });
+        
+        state.poseDetector.setOptions({
+          modelComplexity: 1,
+          smoothLandmarks: true,
+          enableSegmentation: false,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        
+        state.poseDetector.onResults((results) => {
+          if (results.poseLandmarks) {
+            state.latestPoses = [results.poseLandmarks];
           } else {
-            footPattern = 'Split Step';
-            state.biomechanics.footwork.patterns.splitStep++;
+            state.latestPoses = [];
+          }
+        });
+        
+        // Wait for model to load
+        await new Promise(r => setTimeout(r, 2000));
+        state.poseDetectorReady = true;
+        scanProgress.textContent = 'Pose detector ready!';
+        
+      } catch (err) {
+        console.error('Failed to init pose detector:', err);
+        scanProgress.textContent = 'Using fallback detection...';
+      }
+    }
+
+    async function scanForPlayers() {
+      statusDot.classList.add('scanning');
+      state.detectedPlayers = [];
+      
+      try {
+        await initPoseDetector();
+        
+        const duration = previewVideo.duration || 10;
+        const scanTimes = [0.5, 1, 2, 3, 4, 5].filter(t => t < duration);
+        const allDetections = [];
+        
+        for (let i = 0; i < scanTimes.length; i++) {
+          const time = scanTimes[i];
+          scanProgress.textContent = `Scanning frame ${i + 1}/${scanTimes.length}...`;
+          
+          previewVideo.currentTime = time;
+          await new Promise(r => setTimeout(r, 400));
+          
+          // Send frame to pose detector
+          if (state.poseDetector && state.poseDetectorReady) {
+            try {
+              await state.poseDetector.send({ image: previewVideo });
+              await new Promise(r => setTimeout(r, 300));
+              
+              if (state.latestPoses.length > 0) {
+                const pose = state.latestPoses[0];
+                // Calculate center from nose or shoulders
+                let centerX = 0.5, centerY = 0.5;
+                const nose = pose[0];
+                const leftShoulder = pose[11];
+                const rightShoulder = pose[12];
+                
+                if (nose && nose.visibility > 0.5) {
+                  centerX = nose.x;
+                  centerY = nose.y;
+                } else if (leftShoulder && rightShoulder) {
+                  centerX = (leftShoulder.x + rightShoulder.x) / 2;
+                  centerY = (leftShoulder.y + rightShoulder.y) / 2;
+                }
+                
+                allDetections.push({
+                  centerX,
+                  centerY,
+                  landmarks: pose,
+                  time
+                });
+              }
+            } catch (e) {
+              console.warn('Pose detection error:', e);
+            }
           }
         }
+        
+        scanProgress.textContent = 'Processing detections...';
+        
+        // Cluster detections by X position to identify unique players
+        if (allDetections.length > 0) {
+          // Sort by X position
+          allDetections.sort((a, b) => a.centerX - b.centerX);
+          
+          // Cluster into player groups (players at similar X positions)
+          const clusters = [];
+          let currentCluster = [allDetections[0]];
+          
+          for (let i = 1; i < allDetections.length; i++) {
+            const det = allDetections[i];
+            const lastInCluster = currentCluster[currentCluster.length - 1];
+            
+            // If close in X position, same player
+            if (Math.abs(det.centerX - lastInCluster.centerX) < 0.2) {
+              currentCluster.push(det);
+            } else {
+              clusters.push(currentCluster);
+              currentCluster = [det];
+            }
+          }
+          clusters.push(currentCluster);
+          
+          // Take best detection from each cluster
+          state.detectedPlayers = clusters.map((cluster, idx) => {
+            // Average position
+            const avgX = cluster.reduce((s, d) => s + d.centerX, 0) / cluster.length;
+            const avgY = cluster.reduce((s, d) => s + d.centerY, 0) / cluster.length;
+            // Use most recent landmarks
+            const bestDet = cluster[cluster.length - 1];
+            
+            return {
+              tag: PLAYER_TAGS[idx] || `P${idx + 1}`,
+              centerX: avgX,
+              centerY: avgY,
+              position: avgX < 0.35 ? 'Left Side' : avgX > 0.65 ? 'Right Side' : 'Center',
+              landmarks: bestDet.landmarks
+            };
+          });
+        }
+        
+        // If no pose detections, try human detection by motion/color
+        if (state.detectedPlayers.length === 0) {
+          scanProgress.textContent = 'Trying alternative detection...';
+          await detectPlayersByMotion();
+        }
+        
+        if (state.detectedPlayers.length > 0) {
+          showDetectionResults();
+        } else {
+          showNoPlayersState();
+        }
+        
+      } catch (err) {
+        console.error('Scan error:', err);
+        showNoPlayersState();
+      }
+      
+      statusDot.classList.remove('scanning');
+    }
+
+    async function detectPlayersByMotion() {
+      // Fallback: assume standard table tennis setup with 2 players on opposite sides
+      state.detectedPlayers = [
+        { tag: 'A', centerX: 0.25, centerY: 0.5, position: 'Left Side', landmarks: null },
+        { tag: 'B', centerX: 0.75, centerY: 0.5, position: 'Right Side', landmarks: null }
+      ];
+    }
+
+    function showDetectionResults() {
+      scanningState.style.display = 'none';
+      noPlayersState.style.display = 'none';
+      detectionResults.classList.add('active');
+      
+      const list = document.getElementById('detected-players-list');
+      list.innerHTML = state.detectedPlayers.map((p, i) => `
+        <div class="player-tag-item" data-index="${i}" data-tag="${p.tag}">
+          <div class="player-tag-badge" style="background:${i === 0 ? 'var(--player1)' : i === 1 ? 'var(--player2)' : 'var(--accent)'}">${p.tag}</div>
+          <div class="player-tag-desc">${p.position}</div>
+        </div>
+      `).join('');
+      
+      // Click to select
+      list.querySelectorAll('.player-tag-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const tag = item.dataset.tag;
+          if (state.isMultiPlayerMode) {
+            const p1Input = document.getElementById('p1-tag-input');
+            const p2Input = document.getElementById('p2-tag-input');
+            if (!p1Input.value || p1Input.value === tag) {
+              p1Input.value = tag;
+            } else if (!p2Input.value || p2Input.value === tag) {
+              p2Input.value = tag;
+            } else {
+              p2Input.value = tag;
+            }
+          } else {
+            document.getElementById('single-tag-input').value = tag;
+          }
+          updatePlayerTagSelection();
+        });
+      });
+      
+      drawPlayerTags();
+      
+      // Auto-fill first players
+      if (state.detectedPlayers.length >= 1) {
+        document.getElementById('single-tag-input').value = state.detectedPlayers[0].tag;
+        document.getElementById('p1-tag-input').value = state.detectedPlayers[0].tag;
+      }
+      if (state.detectedPlayers.length >= 2) {
+        document.getElementById('p2-tag-input').value = state.detectedPlayers[1].tag;
+      }
+      
+      updatePlayerTagSelection();
+    }
+
+    function updatePlayerTagSelection() {
+      const items = document.querySelectorAll('.player-tag-item');
+      const p1Tag = state.isMultiPlayerMode ? document.getElementById('p1-tag-input').value : document.getElementById('single-tag-input').value;
+      const p2Tag = state.isMultiPlayerMode ? document.getElementById('p2-tag-input').value : '';
+      
+      items.forEach(item => {
+        item.classList.remove('selected');
+        if (item.dataset.tag === p1Tag || item.dataset.tag === p2Tag) {
+          item.classList.add('selected');
+        }
+      });
+    }
+
+    function showNoPlayersState() {
+      scanningState.style.display = 'none';
+      detectionResults.classList.remove('active');
+      noPlayersState.style.display = 'block';
+    }
+
+    function drawPlayerTags() {
+      const ctx = previewOverlayCtx;
+      const w = previewOverlay.width, h = previewOverlay.height;
+      ctx.clearRect(0, 0, w, h);
+      
+      state.detectedPlayers.forEach((p, i) => {
+        const x = p.centerX * w;
+        const y = Math.max(60, (p.centerY || 0.3) * h - 60);
+        const color = i === 0 ? '#00eaff' : i === 1 ? '#ff6b9d' : '#4cffc1';
+        
+        // Draw vertical line
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // Draw tag badge
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.roundRect(x - 25, y - 25, 50, 50, 10);
+        ctx.fill();
+        
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 28px Inter, Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.tag, x, y);
+        
+        // Draw position label
+        ctx.fillStyle = color;
+        ctx.font = '14px Inter, Arial';
+        ctx.fillText(p.position, x, y + 40);
+        
+        // Draw pose if available
+        if (p.landmarks) {
+          ctx.strokeStyle = `${color}aa`;
+          ctx.lineWidth = 3;
+          const lm = p.landmarks;
+          
+          // Draw arms
+          [[12,14,16], [11,13,15]].forEach(arm => {
+            ctx.beginPath();
+            arm.forEach((idx, j) => {
+              if (lm[idx] && lm[idx].visibility > 0.3) {
+                const px = lm[idx].x * w, py = lm[idx].y * h;
+                if (j === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+              }
+            });
+            ctx.stroke();
+          });
+          
+          // Draw key points
+          [11, 12, 13, 14, 15, 16].forEach(idx => {
+            if (lm[idx] && lm[idx].visibility > 0.3) {
+              ctx.beginPath();
+              ctx.arc(lm[idx].x * w, lm[idx].y * h, 5, 0, Math.PI * 2);
+              ctx.fillStyle = color;
+              ctx.fill();
+            }
+          });
+        }
+      });
+    }
+
+    function confirmPlayerSelection() {
+      if (state.isMultiPlayerMode) {
+        const p1Tag = document.getElementById('p1-tag-input').value.toUpperCase().trim();
+        const p2Tag = document.getElementById('p2-tag-input').value.toUpperCase().trim();
+        
+        let p1Data = state.detectedPlayers.find(p => p.tag === p1Tag);
+        let p2Data = state.detectedPlayers.find(p => p.tag === p2Tag);
+        
+        // Allow manual tags
+        if (!p1Data) p1Data = { tag: p1Tag || 'A', centerX: 0.25, position: 'Left Side' };
+        if (!p2Data) p2Data = { tag: p2Tag || 'B', centerX: 0.75, position: 'Right Side' };
+        
+        if (p1Tag === p2Tag && p1Tag) { alert('Select two different players'); return; }
+        
+        state.player1 = { ...state.player1, index: 0, tag: p1Data.tag, name: document.getElementById('p1-name-input').value || `Player ${p1Data.tag}`, position: p1Data.position, centerX: p1Data.centerX };
+        state.player2 = { ...state.player2, index: 1, tag: p2Data.tag, name: document.getElementById('p2-name-input').value || `Player ${p2Data.tag}`, position: p2Data.position, centerX: p2Data.centerX };
+        
+        document.getElementById('p1-tag-display').textContent = state.player1.tag;
+        document.getElementById('p1-name-display').textContent = state.player1.name;
+        document.getElementById('p1-pos-display').textContent = state.player1.position;
+        document.getElementById('p2-tag-display').textContent = state.player2.tag;
+        document.getElementById('p2-name-display').textContent = state.player2.name;
+        document.getElementById('p2-pos-display').textContent = state.player2.position;
+        document.getElementById('ind-p1-tag').textContent = state.player1.tag;
+        document.getElementById('ind-p2-tag').textContent = state.player2.tag;
+        
+        trackedPlayersDisplay.style.display = 'flex';
+        singlePlayerDisplay.style.display = 'none';
+        document.getElementById('dashboard-title').textContent = 'Multi-Player Analysis';
+        document.getElementById('dashboard-subtitle').textContent = `${state.player1.name} vs ${state.player2.name}`;
+        
+      } else {
+        const tag = document.getElementById('single-tag-input').value.toUpperCase().trim() || 'A';
+        let pData = state.detectedPlayers.find(p => p.tag === tag);
+        if (!pData) pData = { tag, centerX: 0.5, position: 'Center' };
+        
+        state.player1 = { ...state.player1, index: 0, tag: pData.tag, name: document.getElementById('single-name-input').value || `Player ${pData.tag}`, position: pData.position, centerX: pData.centerX };
+        
+        document.getElementById('single-tag-display').textContent = state.player1.tag;
+        document.getElementById('single-name-display').textContent = state.player1.name;
+        document.getElementById('single-pos-display').textContent = state.player1.position;
+        
+        singlePlayerDisplay.style.display = 'block';
+        trackedPlayersDisplay.style.display = 'none';
+        document.getElementById('dashboard-title').textContent = 'Single Player Analysis';
+        document.getElementById('dashboard-subtitle').textContent = state.player1.name;
+      }
+      
+      state.isPlayerSelected = true;
+      hidePlayerDetectionModal();
+      statusEl.textContent = state.isMultiPlayerMode ? `Tracking ${state.player1.name} vs ${state.player2.name}` : `Tracking ${state.player1.name}`;
+      statusDot.classList.add('active');
+      video.play();
+    }
+
+    // Manual selection for when detection fails
+    document.getElementById('manual-select-btn')?.addEventListener('click', () => {
+      // Create default players at standard positions
+      state.detectedPlayers = [
+        { tag: 'A', centerX: 0.25, centerY: 0.5, position: 'Left Side', landmarks: null },
+        { tag: 'B', centerX: 0.75, centerY: 0.5, position: 'Right Side', landmarks: null }
+      ];
+      showDetectionResults();
+    });
+
+    startAnalysisBtn.addEventListener('click', () => { if (state.videoLoaded) showPlayerDetectionModal(); });
+    document.getElementById('confirm-players-btn').addEventListener('click', confirmPlayerSelection);
+    document.getElementById('rescan-btn').addEventListener('click', () => { scanningState.style.display = 'block'; detectionResults.classList.remove('active'); scanForPlayers(); });
+    document.getElementById('cancel-detect-btn').addEventListener('click', hidePlayerDetectionModal);
+    document.getElementById('retry-scan-btn').addEventListener('click', () => { scanningState.style.display = 'block'; noPlayersState.style.display = 'none'; scanForPlayers(); });
+    document.getElementById('cancel-no-players-btn').addEventListener('click', hidePlayerDetectionModal);
+    document.getElementById('change-players-btn').addEventListener('click', () => { video.pause(); state.isPlayerSelected = false; showPlayerDetectionModal(); });
+    document.getElementById('change-single-btn').addEventListener('click', () => { video.pause(); state.isPlayerSelected = false; showPlayerDetectionModal(); });
+    
+    ['single-tag-input', 'p1-tag-input', 'p2-tag-input'].forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', e => { e.target.value = e.target.value.toUpperCase(); updatePlayerTagSelection(); });
+    });
+
+    upload.addEventListener('change', e => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      video.src = URL.createObjectURL(f);
+      state.videoLoaded = true;
+      startAnalysisBtn.disabled = false;
+      statusEl.textContent = 'Video loaded — Click Start';
+      resetSession();
+    });
+
+    video.addEventListener('loadedmetadata', () => { state.videoLoaded = true; startAnalysisBtn.disabled = false; });
+    video.addEventListener('play', () => {
+      if (!state.isPlayerSelected) { video.pause(); showPlayerDetectionModal(); return; }
+      statusEl.textContent = state.isMultiPlayerMode ? `Analyzing: ${state.player1.name} vs ${state.player2.name}` : `Analyzing: ${state.player1.name}`;
+      statusDot.classList.add('active');
+      state.isAnalyzing = true;
+      analyzeFrame();
+    });
+    video.addEventListener('pause', () => { statusEl.textContent = 'Paused'; statusDot.classList.remove('active'); });
+    video.addEventListener('ended', () => { statusEl.textContent = 'Complete!'; statusDot.classList.remove('active'); state.isAnalyzing = false; });
+    document.getElementById('toggle-tracking').addEventListener('click', e => { state.ballTrackingEnabled = !state.ballTrackingEnabled; e.target.textContent = `🎾 Ball: ${state.ballTrackingEnabled ? 'ON' : 'OFF'}`; });
+
+    function classifyStroke(wrist, elbow, shoulder, prevWrist, velocity, position) {
+      const dx = wrist.x - prevWrist.x, dy = wrist.y - prevWrist.y;
+      let angle = 90;
+      if (elbow && shoulder) {
+        const v1 = { x: shoulder.x - elbow.x, y: shoulder.y - elbow.y }, v2 = { x: wrist.x - elbow.x, y: wrist.y - elbow.y };
+        const dot = v1.x * v2.x + v1.y * v2.y, m1 = Math.sqrt(v1.x**2 + v1.y**2), m2 = Math.sqrt(v2.x**2 + v2.y**2);
+        if (m1 > 0 && m2 > 0) angle = Math.acos(Math.min(1, Math.max(-1, dot/(m1*m2)))) * 180/Math.PI;
+      }
+      let side = position === 'Left Side' ? (dx > 0 ? 'FH' : 'BH') : position === 'Right Side' ? (dx < 0 ? 'FH' : 'BH') : (elbow && wrist.x > elbow.x ? 'FH' : 'BH');
+      let type = velocity > 0.055 && angle > 110 ? 'Smash' : dy > 0.01 && Math.abs(dy) > Math.abs(dx) * 1.2 ? 'Chop' : velocity < 0.025 ? 'Block' : 'Loop';
+      return `${side} ${type}`;
+    }
+
+    function processPlayerStroke(player, pose, currentTime, playerNum) {
+      const wrist = pose[16] || pose[15], elbow = pose[14] || pose[13], shoulder = pose[12] || pose[11];
+      if (!wrist || wrist.visibility < 0.3) return;
+      
+      if (player.prevWrist) {
+        const dx = wrist.x - player.prevWrist.x, dy = wrist.y - player.prevWrist.y;
+        const velocity = Math.sqrt(dx*dx + dy*dy);
+        player.speedSamples.push(velocity * 1000);
+        if (player.speedSamples.length > 100) player.speedSamples.shift();
+        const avgSpeed = player.speedSamples.reduce((a,b)=>a+b,0) / player.speedSamples.length;
+        
+        if (velocity > Math.max(0.012, avgSpeed * CONFIG.SPEED_THRESHOLD_MULT / 1000) && currentTime - player.lastStrokeTime > CONFIG.STROKE_COOLDOWN) {
+          const strokeType = classifyStroke(wrist, elbow, shoulder, player.prevWrist, velocity, player.position);
+          player.strokes.push({ t: currentTime, type: strokeType, speed: velocity * 1000, player: playerNum });
+          player.strokeDistribution[strokeType] = (player.strokeDistribution[strokeType] || 0) + 1;
+          player.lastStrokeTime = currentTime;
+          
+          if (state.isMultiPlayerMode) {
+            if (state.lastStrokePlayer !== null && state.lastStrokePlayer !== playerNum) { state.currentRally++; state.totalExchanges++; }
+            else if (state.lastStrokePlayer === playerNum) { state.longestRally = Math.max(state.longestRally, state.currentRally); state.currentRally = 0; }
+            state.lastStrokePlayer = playerNum;
+            state.exchanges.unshift({ time: currentTime, player: playerNum, stroke: strokeType, speed: velocity * 1000 });
+            if (state.exchanges.length > 50) state.exchanges.pop();
+          }
+          statusEl.textContent = `${player.name}: ${strokeType}`;
+        }
+        
+        if (player.speedSamples.length > 10) {
+          const recent = player.speedSamples.slice(-30), mean = recent.reduce((a,b)=>a+b,0)/recent.length;
+          const variance = recent.reduce((s,v)=>s+(v-mean)**2,0)/recent.length;
+          player.consistency = Math.max(0, Math.min(100, 100 - (mean > 0 ? (Math.sqrt(variance)/mean)*100 : 0)));
+        }
+      }
+      player.prevWrist = { x: wrist.x, y: wrist.y };
+    }
+
+    class BallTracker {
+      constructor() { this.kalman = { x: 0, y: 0, vx: 0, vy: 0, init: false }; }
+      detect(current, prev, w, h) {
+        if (!state.ballTrackingEnabled) return null;
+        const candidates = [], data = current.data, prevData = prev?.data;
+        const oSens = CONFIG.BALL_TRACKING.orangeSensitivity / 100, wSens = CONFIG.BALL_TRACKING.whiteSensitivity / 100;
+        const blobs = new Map();
+        for (let y = 0; y < h; y += 3) {
+          for (let x = 0; x < w; x += 3) {
+            const i = (y * w + x) * 4, r = data[i], g = data[i+1], b = data[i+2];
+            const isOrange = r > 140 + (1-oSens)*80 && g > 40 && g < 170 && b < 100 && r > g;
+            const isWhite = r > 190+(1-wSens)*50 && g > 190+(1-wSens)*50 && b > 190+(1-wSens)*50;
+            let motion = true;
+            if (prevData) motion = Math.abs(r-prevData[i]) + Math.abs(g-prevData[i+1]) + Math.abs(b-prevData[i+2]) > 10;
+            if ((isOrange || isWhite) && motion) {
+              const key = `${Math.floor(x/15)}_${Math.floor(y/15)}`;
+              if (!blobs.has(key)) blobs.set(key, { sx: 0, sy: 0, n: 0, o: isOrange });
+              const bl = blobs.get(key); bl.sx += x; bl.sy += y; bl.n++;
+            }
+          }
+        }
+        blobs.forEach(bl => { if (bl.n >= 5) candidates.push({ x: bl.sx/bl.n, y: bl.sy/bl.n, radius: Math.max(8, Math.sqrt(bl.n*9/Math.PI)), isOrange: bl.o, confidence: bl.n/40 }); });
+        if (state.lastBallPosition && candidates.length > 0) {
+          candidates.sort((a, b) => Math.sqrt((a.x-state.lastBallPosition.x)**2+(a.y-state.lastBallPosition.y)**2) - Math.sqrt((b.x-state.lastBallPosition.x)**2+(b.y-state.lastBallPosition.y)**2));
+          if (Math.sqrt((candidates[0].x-state.lastBallPosition.x)**2+(candidates[0].y-state.lastBallPosition.y)**2) < 100) return this.filter(candidates[0]);
+        }
+        if (candidates.length > 0) { candidates.sort((a, b) => b.confidence - a.confidence); return this.filter(candidates[0]); }
+        return null;
+      }
+      filter(m) {
+        const k = this.kalman;
+        if (!k.init) { k.x = m.x; k.y = m.y; k.vx = 0; k.vy = 0; k.init = true; return m; }
+        const px = k.x + k.vx, py = k.y + k.vy;
+        k.x = px + 0.6*(m.x-px); k.y = py + 0.6*(m.y-py);
+        k.vx = (k.x-px)*0.8 + k.vx*0.2; k.vy = (k.y-py)*0.8 + k.vy*0.2;
+        return { ...m, x: k.x, y: k.y };
+      }
+      reset() { this.kalman.init = false; }
+    }
+    const ballTracker = new BallTracker();
+
+    async function analyzeFrame() {
+      if (!video || video.paused || video.ended || !state.isPlayerSelected) { if (state.isAnalyzing) requestAnimationFrame(analyzeFrame); return; }
+      state.frameCount++;
+      const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+      if (overlayCanvas.width !== vw) { overlayCanvas.width = vw; overlayCanvas.height = vh; state.processingCanvas.width = vw; state.processingCanvas.height = vh; }
+      overlayCtx.clearRect(0, 0, vw, vh);
+      
+      try {
+        state.processingCtx.drawImage(video, 0, 0);
+        const frameData = state.processingCtx.getImageData(0, 0, vw, vh);
+        
+        // Ball tracking
+        if (state.ballTrackingEnabled) {
+          const ball = ballTracker.detect(frameData, state.prevFrameData, vw, vh);
+          if (ball) {
+            if (state.lastBallPosition) {
+              const speed = Math.sqrt(((ball.x-state.lastBallPosition.x)*CONFIG.PIXELS_TO_METERS)**2+((ball.y-state.lastBallPosition.y)*CONFIG.PIXELS_TO_METERS)**2)*CONFIG.FPS*3.6;
+              if (speed > 0 && speed < 200) { state.ballSpeeds.push(speed); if (state.ballSpeeds.length > 100) state.ballSpeeds.shift(); }
+            }
+            state.ballTrajectory.push({ x: ball.x, y: ball.y });
+            if (state.ballTrajectory.length > 30) state.ballTrajectory.shift();
+            state.lastBallPosition = ball;
+            overlayCtx.beginPath(); overlayCtx.arc(ball.x, ball.y, ball.radius || 10, 0, Math.PI * 2);
+            overlayCtx.strokeStyle = ball.isOrange ? '#ff8c00' : '#ff0'; overlayCtx.lineWidth = 3; overlayCtx.stroke();
+            if (state.ballTrajectory.length > 1) {
+              overlayCtx.beginPath(); overlayCtx.strokeStyle = 'rgba(255,200,0,0.4)'; overlayCtx.lineWidth = 2;
+              state.ballTrajectory.forEach((p, i) => i === 0 ? overlayCtx.moveTo(p.x, p.y) : overlayCtx.lineTo(p.x, p.y));
+              overlayCtx.stroke();
+            }
+          }
+          state.prevFrameData = frameData;
+        }
+        
+        // Pose detection - use every 2nd frame for performance
+        if (state.poseDetector && state.poseDetectorReady && state.frameCount % 2 === 0) {
+          try {
+            await state.poseDetector.send({ image: video });
+            
+            const poses = state.latestPoses;
+            if (poses && poses.length > 0) {
+              const currentTime = video.currentTime || 0;
+              const pose = poses[0];
+              
+              // Determine which player this pose belongs to based on X position
+              const nose = pose[0];
+              let poseX = 0.5;
+              if (nose && nose.visibility > 0.3) {
+                poseX = nose.x;
+              } else {
+                const ls = pose[11], rs = pose[12];
+                if (ls && rs) poseX = (ls.x + rs.x) / 2;
+              }
+              
+              // Assign to closest player
+              const distToP1 = Math.abs(poseX - state.player1.centerX);
+              const distToP2 = state.isMultiPlayerMode ? Math.abs(poseX - state.player2.centerX) : Infinity;
+              
+              if (distToP1 <= distToP2) {
+                processPlayerStroke(state.player1, pose, currentTime, 1);
+                drawPlayerOverlay(pose, vw, vh, '#00eaff', state.player1.tag);
+              } else {
+                processPlayerStroke(state.player2, pose, currentTime, 2);
+                drawPlayerOverlay(pose, vw, vh, '#ff6b9d', state.player2.tag);
+              }
+            }
+          } catch (e) { /* ignore pose errors during playback */ }
+        }
+        
+        state.longestRally = Math.max(state.longestRally, state.currentRally);
+        
+      } catch (e) { console.warn('Frame error:', e); }
+      
+      requestAnimationFrame(analyzeFrame);
+    }
+
+    function drawPlayerOverlay(pose, w, h, color, tag) {
+      if (!pose) return;
+      overlayCtx.fillStyle = color;
+      [11,12,13,14,15,16].forEach(i => { if (pose[i] && pose[i].visibility > 0.3) { overlayCtx.beginPath(); overlayCtx.arc(pose[i].x*w, pose[i].y*h, 5, 0, Math.PI*2); overlayCtx.fill(); } });
+      overlayCtx.strokeStyle = `${color}aa`; overlayCtx.lineWidth = 3;
+      [[12,14,16], [11,13,15]].forEach(arm => { overlayCtx.beginPath(); arm.forEach((i, idx) => { if (pose[i] && pose[i].visibility > 0.3) { if (idx === 0) overlayCtx.moveTo(pose[i].x*w, pose[i].y*h); else overlayCtx.lineTo(pose[i].x*w, pose[i].y*h); } }); overlayCtx.stroke(); });
+      if (pose[0] && pose[0].visibility > 0.3) {
+        const nx = pose[0].x * w, ny = Math.max(25, pose[0].y * h - 40);
+        overlayCtx.fillStyle = color; overlayCtx.beginPath(); overlayCtx.roundRect(nx-12, ny-12, 24, 24, 4); overlayCtx.fill();
+        overlayCtx.fillStyle = '#000'; overlayCtx.font = 'bold 14px Inter, Arial'; overlayCtx.textAlign = 'center'; overlayCtx.textBaseline = 'middle';
+        overlayCtx.fillText(tag, nx, ny);
       }
     }
-    
-    // Calculate scores
-    const wristScore = Math.min(100, Math.round(angularVelocity / 8 + velocity * 500));
-    const torsoScore = Math.min(100, Math.round(xFactor * 2 + powerTransfer * 0.5));
-    const footScore = footPattern !== 'Stationary' ? 75 : 50;
-    
-    // Confidence
-    const confidence = Math.min(0.95, velocity / 0.08 + (180 - elbowAngle) / 300 + (angularVelocity / 1000));
-    
-    detectedStroke = {
-      type: strokeClass.type,
-      subtype: strokeClass.subtype,
-      side: strokeClass.side,
-      spin: spin,
-      velocity: velocity * 1000,
-      elbowAngle: Math.round(elbowAngle),
-      angularVelocity: Math.round(angularVelocity),
-      xFactor: Math.round(xFactor),
-      powerTransfer,
-      footPattern,
-      wristScore,
-      torsoScore,
-      footScore,
-      confidence: Math.max(0.3, confidence),
-      timestamp: currentTime,
-      t: now
-    };
-    
-    // Update biomechanics state
-    state.biomechanics.wrist = { angularVelocity: Math.round(angularVelocity), spinPotential: spin.degree > 60 ? 'High' : spin.degree > 30 ? 'Medium' : 'Low', score: wristScore };
-    state.biomechanics.torso = { xFactor: Math.round(xFactor), powerTransfer, score: torsoScore };
-    state.biomechanics.footwork = { ...state.biomechanics.footwork, pattern: footPattern, score: footScore };
-  });
-  
-  if (detectedStroke) {
-    state.lastStrokeTime = now;
-    state.strokes.push(detectedStroke);
-    if (state.strokes.length > 500) state.strokes.shift();
-    
-    // Add to timeline
-    addTimelineEvent(detectedStroke);
-    
-    // Show feedback
-    if (state.showTips && now - state.lastFeedbackTime > 2000) {
-      showStrokeFeedback(detectedStroke);
-      state.lastFeedbackTime = now;
+
+    function generateMatchupInsights() {
+      const p1 = state.player1, p2 = state.player2, insights = [];
+      if (p1.strokes.length < 5 || p2.strokes.length < 5) return ['Play more to generate insights...'];
+      const p1Total = p1.strokes.length, p2Total = p2.strokes.length;
+      const p1FH = Object.entries(p1.strokeDistribution).filter(([k])=>k.startsWith('FH')).reduce((s,[,v])=>s+v,0);
+      const p2FH = Object.entries(p2.strokeDistribution).filter(([k])=>k.startsWith('FH')).reduce((s,[,v])=>s+v,0);
+      if (p1Total > p2Total * 1.5) insights.push(`<span class="p1-highlight">${p1.name}</span> more active (${p1Total} vs ${p2Total})`);
+      else if (p2Total > p1Total * 1.5) insights.push(`<span class="p2-highlight">${p2.name}</span> more active (${p2Total} vs ${p1Total})`);
+      if (p1FH > p1Total * 0.7) insights.push(`<span class="p1-highlight">${p1.name}</span> favors forehand`);
+      if (p2FH > p2Total * 0.7) insights.push(`<span class="p2-highlight">${p2.name}</span> favors forehand`);
+      if (p1.consistency > p2.consistency + 15) insights.push(`<span class="p1-highlight">${p1.name}</span> more consistent`);
+      else if (p2.consistency > p1.consistency + 15) insights.push(`<span class="p2-highlight">${p2.name}</span> more consistent`);
+      if (state.longestRally > 10) insights.push(`Great rally: <span class="highlight">${state.longestRally} exchanges</span>`);
+      return insights.length > 0 ? insights : ['Evenly matched!'];
     }
-    
-    statusEl.textContent = `${detectedStroke.type} • ${detectedStroke.spin.type} ${detectedStroke.spin.degree}%`;
-  }
-  
-  return detectedStroke;
-}
 
-/* ============================================
-   TIMELINE
-   ============================================ */
-function addTimelineEvent(stroke) {
-  const spinClass = stroke.spin.type.toLowerCase();
-  const playerColor = stroke.side === 'FH' ? 'var(--player1)' : 'var(--player2)';
-  
-  const eventHtml = `
-    <div class="event">
-      <div class="header">
-        <div class="player-dot" style="background:${playerColor}"></div>
-        <div class="stroke-type">${stroke.type}${stroke.subtype ? ' ' + stroke.subtype : ''}</div>
-        <div class="time">${stroke.timestamp.toFixed(2)}s</div>
-      </div>
-      <div class="details">
-        <span class="tag spin ${spinClass}">${stroke.spin.type} ${stroke.spin.degree}%</span>
-        <span class="tag speed">Speed: ${stroke.velocity.toFixed(0)}</span>
-        <span class="tag wrist">Wrist: ${stroke.angularVelocity}°/s</span>
-        <span class="tag power">Power: ${stroke.powerTransfer}%</span>
-        <span class="tag conf">${(stroke.confidence * 100).toFixed(0)}%</span>
-      </div>
-    </div>
-  `;
-  
-  // Clear placeholder if first event
-  if (state.strokes.length === 1) {
-    timelineEl.innerHTML = '';
-  }
-  
-  timelineEl.insertAdjacentHTML('afterbegin', eventHtml);
-  
-  // Keep max 50 events in DOM
-  while (timelineEl.children.length > 50) {
-    timelineEl.lastChild.remove();
-  }
-}
-
-/* ============================================
-   FEEDBACK
-   ============================================ */
-function showStrokeFeedback(stroke) {
-  const card = document.createElement('div');
-  card.className = 'feedback-card stroke';
-  
-  let message = '';
-  if (stroke.spin.degree > 70) {
-    message = `Excellent ${stroke.spin.type.toLowerCase()} generation!`;
-  } else if (stroke.powerTransfer > 70) {
-    message = 'Great body rotation and power transfer!';
-  } else if (stroke.angularVelocity > 500) {
-    message = 'Nice wrist snap for spin!';
-  } else {
-    message = `${stroke.type} detected with ${stroke.spin.type.toLowerCase()}.`;
-  }
-  
-  card.innerHTML = `
-    <div class="title">🏓 ${stroke.type}</div>
-    <div class="message">${message}</div>
-    <div class="metrics">
-      <div class="metric"><span class="label">Spin:</span><span class="value ${stroke.spin.degree > 50 ? 'good' : ''}">${stroke.spin.type} ${stroke.spin.degree}%</span></div>
-      <div class="metric"><span class="label">Power:</span><span class="value ${stroke.powerTransfer > 60 ? 'good' : ''}">${stroke.powerTransfer}%</span></div>
-    </div>
-  `;
-  
-  feedbackPanel.appendChild(card);
-  
-  setTimeout(() => {
-    card.classList.add('fade-out');
-    setTimeout(() => card.remove(), 500);
-  }, CONFIG.FEEDBACK_DURATION);
-  
-  while (feedbackPanel.children.length > 2) {
-    feedbackPanel.firstChild.remove();
-  }
-}
-
-/* ============================================
-   RENDERING
-   ============================================ */
-function renderSkeleton(landmarks, w, h) {
-  overlayCtx.clearRect(0, 0, w, h);
-  if (!state.showSkeleton || !landmarks) return;
-  
-  const CONNECTIONS = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[24,26],[25,27],[26,28]];
-  
-  overlayCtx.strokeStyle = 'rgba(0,255,120,0.7)';
-  overlayCtx.lineWidth = 2;
-  
-  CONNECTIONS.forEach(([a, b]) => {
-    const pa = landmarks[a], pb = landmarks[b];
-    if (pa && pb && pa.visibility > 0.3 && pb.visibility > 0.3) {
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(pa.x * w, pa.y * h);
-      overlayCtx.lineTo(pb.x * w, pb.y * h);
-      overlayCtx.stroke();
-    }
-  });
-  
-  [11,12,13,14,15,16,23,24,25,26,27,28].forEach(i => {
-    const p = landmarks[i];
-    if (p && p.visibility > 0.3) {
-      overlayCtx.fillStyle = 'rgba(0,255,120,0.9)';
-      overlayCtx.beginPath();
-      overlayCtx.arc(p.x * w, p.y * h, 4, 0, Math.PI * 2);
-      overlayCtx.fill();
-    }
-  });
-}
-
-function renderBioOverlay(landmarks, w, h) {
-  bioCtx.clearRect(0, 0, w, h);
-  if (!state.showBioOverlay || !landmarks) return;
-  
-  const RW = landmarks[16], RE = landmarks[14], RS = landmarks[12];
-  const LW = landmarks[15], LE = landmarks[13], LS = landmarks[11];
-  const LA = landmarks[27], RA = landmarks[28];
-  const LH = landmarks[23], RH = landmarks[24];
-  
-  // Wrist overlay
-  if (state.overlayToggles.wrist) {
-    [{ w: RW, e: RE }, { w: LW, e: LE }].forEach(({ w: wrist, e: elbow }) => {
-      if (!wrist || !elbow || wrist.visibility < 0.5) return;
-      
-      bioCtx.strokeStyle = 'rgba(255,0,255,0.8)';
-      bioCtx.lineWidth = 3;
-      bioCtx.shadowColor = 'rgba(255,0,255,0.5)';
-      bioCtx.shadowBlur = 8;
-      bioCtx.beginPath();
-      bioCtx.moveTo(elbow.x * w, elbow.y * h);
-      bioCtx.lineTo(wrist.x * w, wrist.y * h);
-      bioCtx.stroke();
-      bioCtx.shadowBlur = 0;
-      
-      bioCtx.fillStyle = '#ff00ff';
-      bioCtx.beginPath();
-      bioCtx.arc(wrist.x * w, wrist.y * h, 6, 0, Math.PI * 2);
-      bioCtx.fill();
-      
-      // Angular velocity indicator
-      if (state.biomechanics.wrist.angularVelocity > 100) {
-        const radius = 20 + state.biomechanics.wrist.angularVelocity / 50;
-        bioCtx.strokeStyle = `rgba(255,0,255,${Math.min(1, state.biomechanics.wrist.angularVelocity / 600)})`;
-        bioCtx.lineWidth = 2;
-        bioCtx.beginPath();
-        bioCtx.arc(wrist.x * w, wrist.y * h, radius, 0, Math.PI * 2);
-        bioCtx.stroke();
+    function refreshUI() {
+      const p1 = state.player1, p2 = state.player2;
+      document.getElementById('current-rally').textContent = state.currentRally;
+      document.getElementById('longest-rally').textContent = state.longestRally;
+      document.getElementById('total-exchanges').textContent = state.totalExchanges;
+      const p1Total = p1.strokes.length, p2Total = state.isMultiPlayerMode ? p2.strokes.length : 0, total = p1Total + p2Total || 1;
+      document.getElementById('p1-strokes').textContent = p1Total;
+      document.getElementById('p2-strokes').textContent = p2Total;
+      document.getElementById('p1-strokes-bar').style.width = `${(p1Total/total)*100}%`;
+      document.getElementById('p2-strokes-bar').style.width = `${(p2Total/total)*100}%`;
+      const p1Avg = p1.speedSamples.length > 0 ? (p1.speedSamples.reduce((a,b)=>a+b,0)/p1.speedSamples.length).toFixed(0) : 0;
+      const p2Avg = state.isMultiPlayerMode && p2.speedSamples.length > 0 ? (p2.speedSamples.reduce((a,b)=>a+b,0)/p2.speedSamples.length).toFixed(0) : 0;
+      const maxSpd = Math.max(parseFloat(p1Avg), parseFloat(p2Avg)) || 1;
+      document.getElementById('p1-speed').textContent = p1Avg;
+      document.getElementById('p2-speed').textContent = p2Avg;
+      document.getElementById('p1-speed-bar').style.width = `${(p1Avg/maxSpd)*50}%`;
+      document.getElementById('p2-speed-bar').style.width = `${(p2Avg/maxSpd)*50}%`;
+      document.getElementById('p1-consistency').textContent = `${Math.round(p1.consistency)}%`;
+      document.getElementById('p2-consistency').textContent = `${Math.round(p2.consistency)}%`;
+      const consTotal = p1.consistency + p2.consistency || 1;
+      document.getElementById('p1-cons-bar').style.width = `${(p1.consistency/consTotal)*100}%`;
+      document.getElementById('p2-cons-bar').style.width = `${(p2.consistency/consTotal)*100}%`;
+      const p1FH = Object.entries(p1.strokeDistribution).filter(([k])=>k.startsWith('FH')).reduce((s,[,v])=>s+v,0);
+      const p2FH = Object.entries(p2.strokeDistribution).filter(([k])=>k.startsWith('FH')).reduce((s,[,v])=>s+v,0);
+      const fhTotal = p1FH + p2FH || 1;
+      document.getElementById('p1-fh').textContent = p1FH;
+      document.getElementById('p2-fh').textContent = p2FH;
+      document.getElementById('p1-fh-bar').style.width = `${(p1FH/fhTotal)*100}%`;
+      document.getElementById('p2-fh-bar').style.width = `${(p2FH/fhTotal)*100}%`;
+      const p1BH = Object.entries(p1.strokeDistribution).filter(([k])=>k.startsWith('BH')).reduce((s,[,v])=>s+v,0);
+      const p2BH = Object.entries(p2.strokeDistribution).filter(([k])=>k.startsWith('BH')).reduce((s,[,v])=>s+v,0);
+      const bhTotal = p1BH + p2BH || 1;
+      document.getElementById('p1-bh').textContent = p1BH;
+      document.getElementById('p2-bh').textContent = p2BH;
+      document.getElementById('p1-bh-bar').style.width = `${(p1BH/bhTotal)*100}%`;
+      document.getElementById('p2-bh-bar').style.width = `${(p2BH/bhTotal)*100}%`;
+      const p1Dom = total > 0 ? (p1Total / total) * 100 : 50;
+      document.getElementById('p1-dominance').textContent = `${Math.round(p1Dom)}%`;
+      document.getElementById('p2-dominance').textContent = `${Math.round(100 - p1Dom)}%`;
+      document.getElementById('p1-dom-bar').style.width = `${p1Dom}%`;
+      document.getElementById('p2-dom-bar').style.width = `${100 - p1Dom}%`;
+      document.getElementById('exchange-timeline').innerHTML = state.exchanges.slice(0, 15).map(e => `<div class="exchange-item"><span class="time">${e.time.toFixed(2)}s</span><span class="player-indicator ${e.player === 1 ? 'p1' : 'p2'}">${e.player === 1 ? p1.tag : p2.tag}</span><span class="stroke-type">${e.stroke}</span><span class="speed">${e.speed.toFixed(0)}</span></div>`).join('') || '<div class="muted" style="padding:10px;text-align:center">No exchanges yet</div>';
+      const p1Dist = p1.strokeDistribution;
+      p1StrokeChart.data.datasets[0].data = [p1Dist['FH Loop']||0, p1Dist['BH Loop']||0, p1Dist['FH Chop']||0, p1Dist['BH Chop']||0, (p1Dist['FH Smash']||0)+(p1Dist['BH Smash']||0), (p1Dist['FH Block']||0)+(p1Dist['BH Block']||0)];
+      p1StrokeChart.update('none');
+      if (state.isMultiPlayerMode) {
+        const p2Dist = p2.strokeDistribution;
+        p2StrokeChart.data.datasets[0].data = [p2Dist['FH Loop']||0, p2Dist['BH Loop']||0, p2Dist['FH Chop']||0, p2Dist['BH Chop']||0, (p2Dist['FH Smash']||0)+(p2Dist['BH Smash']||0), (p2Dist['FH Block']||0)+(p2Dist['BH Block']||0)];
+        p2StrokeChart.update('none');
       }
-    });
-  }
-  
-  // Footwork overlay
-  if (state.overlayToggles.foot && LA && RA && LA.visibility > 0.5 && RA.visibility > 0.5) {
-    bioCtx.strokeStyle = 'rgba(0,255,255,0.7)';
-    bioCtx.lineWidth = 2;
-    bioCtx.setLineDash([5, 5]);
-    bioCtx.beginPath();
-    bioCtx.moveTo(LA.x * w, LA.y * h);
-    bioCtx.lineTo(RA.x * w, RA.y * h);
-    bioCtx.stroke();
-    bioCtx.setLineDash([]);
-    
-    [LA, RA].forEach(ankle => {
-      bioCtx.fillStyle = '#00ffff';
-      bioCtx.beginPath();
-      bioCtx.arc(ankle.x * w, ankle.y * h, 6, 0, Math.PI * 2);
-      bioCtx.fill();
-    });
-  }
-  
-  // Torso overlay
-  if (state.overlayToggles.torso && LS && RS && LH && RH) {
-    bioCtx.strokeStyle = 'rgba(255,255,0,0.7)';
-    bioCtx.lineWidth = 3;
-    bioCtx.beginPath();
-    bioCtx.moveTo(LS.x * w, LS.y * h);
-    bioCtx.lineTo(RS.x * w, RS.y * h);
-    bioCtx.stroke();
-    
-    bioCtx.strokeStyle = 'rgba(255,200,0,0.6)';
-    bioCtx.lineWidth = 2;
-    bioCtx.beginPath();
-    bioCtx.moveTo(LH.x * w, LH.y * h);
-    bioCtx.lineTo(RH.x * w, RH.y * h);
-    bioCtx.stroke();
-    
-    // X-Factor indicator
-    if (state.biomechanics.torso.xFactor > 10) {
-      const cx = (LS.x + RS.x + LH.x + RH.x) / 4 * w;
-      const cy = (LS.y + RS.y + LH.y + RH.y) / 4 * h;
-      bioCtx.fillStyle = 'rgba(0,0,0,0.6)';
-      bioCtx.fillRect(cx - 25, cy - 10, 50, 20);
-      bioCtx.fillStyle = '#ffff00';
-      bioCtx.font = 'bold 11px Inter, Arial';
-      bioCtx.textAlign = 'center';
-      bioCtx.fillText(`X:${state.biomechanics.torso.xFactor}°`, cx, cy + 4);
-      bioCtx.textAlign = 'left';
+      speedCompChart.data.labels = p1.speedSamples.slice(-50).map((_, i) => i);
+      speedCompChart.data.datasets[0].data = p1.speedSamples.slice(-50);
+      speedCompChart.data.datasets[1].data = state.isMultiPlayerMode ? p2.speedSamples.slice(-50) : [];
+      speedCompChart.update('none');
+      if (state.isMultiPlayerMode) document.getElementById('matchup-insights-list').innerHTML = generateMatchupInsights().map(i => `<div class="insight">${i}</div>`).join('');
     }
-  }
-}
+    setInterval(refreshUI, 300);
 
-/* ============================================
-   MEDIAPIPE POSE
-   ============================================ */
-const pose = new Pose({
-  locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5/${f}`
-});
+    function resetSession() {
+      state.player1 = { index: -1, tag: '', name: 'Player 1', position: '', centerX: 0.25, prevWrist: null, speedSamples: [], strokes: [], strokeDistribution: {}, lastStrokeTime: 0, consistency: 100 };
+      state.player2 = { index: -1, tag: '', name: 'Player 2', position: '', centerX: 0.75, prevWrist: null, speedSamples: [], strokes: [], strokeDistribution: {}, lastStrokeTime: 0, consistency: 100 };
+      state.isPlayerSelected = false;
+      state.currentRally = 0; state.longestRally = 0; state.totalExchanges = 0; state.lastStrokePlayer = null; state.exchanges = [];
+      state.ballTrajectory = []; state.lastBallPosition = null; state.prevFrameData = null; state.ballSpeeds = [];
+      state.detectedPlayers = []; state.isAnalyzing = false;
+      ballTracker.reset();
+      trackedPlayersDisplay.style.display = 'none'; singlePlayerDisplay.style.display = 'none';
+      statusDot.classList.remove('active', 'scanning');
+      refreshUI();
+    }
 
-pose.setOptions({
-  modelComplexity: 1,
-  smoothLandmarks: true,
-  enableSegmentation: false,
-  minDetectionConfidence: 0.5,
-  minTrackingConfidence: 0.5
-});
+    document.getElementById('reset-session').addEventListener('click', () => { resetSession(); statusEl.textContent = 'Reset'; });
+    document.getElementById('export-json').addEventListener('click', () => {
+      const data = { mode: state.isMultiPlayerMode ? 'multi' : 'single', player1: { name: state.player1.name, tag: state.player1.tag, strokes: state.player1.strokes, distribution: state.player1.strokeDistribution, consistency: state.player1.consistency }, player2: state.isMultiPlayerMode ? { name: state.player2.name, tag: state.player2.tag, strokes: state.player2.strokes, distribution: state.player2.strokeDistribution, consistency: state.player2.consistency } : null, rally: { longest: state.longestRally, totalExchanges: state.totalExchanges }, exchanges: state.exchanges.slice(0, 100) };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `tt_${new Date().toISOString().slice(0,10)}.json`; a.click();
+    });
+    document.getElementById('export-pdf').addEventListener('click', () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      doc.setFontSize(20); doc.setTextColor(0, 200, 220);
+      doc.text(state.isMultiPlayerMode ? 'Multi-Player Report' : 'Player Report', 40, 40);
+      doc.setFontSize(10); doc.setTextColor(100); doc.text(`${new Date().toLocaleString()}`, 40, 60);
+      let y = 90;
+      doc.setFontSize(14); doc.setTextColor(0, 234, 255); doc.text(`${state.player1.name} (${state.player1.tag})`, 40, y); y += 20;
+      doc.setFontSize(11); doc.setTextColor(0);
+      doc.text(`Strokes: ${state.player1.strokes.length}`, 40, y); y += 15;
+      doc.text(`Consistency: ${Math.round(state.player1.consistency)}%`, 40, y); y += 15;
+      Object.entries(state.player1.strokeDistribution).forEach(([t, c]) => { doc.text(`  ${t}: ${c}`, 40, y); y += 12; }); y += 15;
+      if (state.isMultiPlayerMode) {
+        doc.setFontSize(14); doc.setTextColor(255, 107, 157); doc.text(`${state.player2.name} (${state.player2.tag})`, 40, y); y += 20;
+        doc.setFontSize(11); doc.setTextColor(0);
+        doc.text(`Strokes: ${state.player2.strokes.length}`, 40, y); y += 15;
+        doc.text(`Consistency: ${Math.round(state.player2.consistency)}%`, 40, y); y += 15;
+        Object.entries(state.player2.strokeDistribution).forEach(([t, c]) => { doc.text(`  ${t}: ${c}`, 40, y); y += 12; }); y += 15;
+        doc.setFontSize(14); doc.setTextColor(76, 255, 193); doc.text('Rally Stats', 40, y); y += 20;
+        doc.setFontSize(11); doc.setTextColor(0);
+        doc.text(`Longest: ${state.longestRally}`, 40, y); y += 15;
+        doc.text(`Total Exchanges: ${state.totalExchanges}`, 40, y);
+      }
+      doc.save(`tt_${new Date().toISOString().slice(0,10)}.pdf`);
+    });
 
-pose.onResults((results) => {
-  state.prevLandmarks = state.latestLandmarks;
-  state.latestLandmarks = results.poseLandmarks || null;
-});
-
-/* ============================================
-   MAIN LOOP
-   ============================================ */
-async function analyzeFrame() {
-  if (video.paused || video.ended || !state.sessionActive) {
-    requestAnimationFrame(analyzeFrame);
-    return;
-  }
-  
-  state.frameCount++;
-  
-  const vw = video.videoWidth || 640;
-  const vh = video.videoHeight || 480;
-  
-  if (overlay.width !== vw) {
-    overlay.width = vw;
-    overlay.height = vh;
-    bioOverlay.width = vw;
-    bioOverlay.height = vh;
-  }
-  
-  try {
-    await pose.send({ image: video });
-    
-    const landmarks = state.latestLandmarks;
-    
-    // Detect strokes
-    detectStroke(landmarks, video.currentTime);
-    
-    // Render overlays
-    renderSkeleton(landmarks, vw, vh);
-    renderBioOverlay(landmarks, vw, vh);
-    
-  } catch (err) {
-    console.warn('Analysis error:', err);
-  }
-  
-  requestAnimationFrame(analyzeFrame);
-}
-
-/* ============================================
-   UI REFRESH
-   ============================================ */
-function refreshUI() {
-  const bio = state.biomechanics;
-  
-  // Wrist
-  document.getElementById('wrist-score').textContent = bio.wrist.score || '--';
-  document.getElementById('wrist-score').className = `score ${getScoreClass(bio.wrist.score)}`;
-  document.getElementById('wrist-angular-vel').textContent = `${bio.wrist.angularVelocity || '--'} °/s`;
-  document.getElementById('wrist-spin').textContent = bio.wrist.spinPotential || '--';
-  document.getElementById('wrist-bar').style.width = `${bio.wrist.score || 0}%`;
-  
-  // Footwork
-  document.getElementById('foot-score').textContent = bio.footwork.score || '--';
-  document.getElementById('foot-score').className = `score ${getScoreClass(bio.footwork.score)}`;
-  document.getElementById('foot-pattern').textContent = bio.footwork.pattern || '--';
-  document.getElementById('foot-balance').textContent = `${bio.footwork.score || '--'}%`;
-  document.getElementById('foot-bar').style.width = `${bio.footwork.score || 0}%`;
-  
-  // Torso
-  document.getElementById('torso-score').textContent = bio.torso.score || '--';
-  document.getElementById('torso-score').className = `score ${getScoreClass(bio.torso.score)}`;
-  document.getElementById('torso-xfactor').textContent = `${bio.torso.xFactor || '--'}°`;
-  document.getElementById('torso-power').textContent = `${bio.torso.powerTransfer || '--'}%`;
-  document.getElementById('torso-bar').style.width = `${bio.torso.score || 0}%`;
-  
-  // Stroke stats
-  const strokes = state.strokes;
-  document.getElementById('total-strokes').textContent = strokes.length;
-  document.getElementById('fh-count').textContent = strokes.filter(s => s.side === 'FH').length;
-  document.getElementById('bh-count').textContent = strokes.filter(s => s.side === 'BH').length;
-  document.getElementById('topspin-count').textContent = strokes.filter(s => s.spin.type === 'Topspin').length;
-  document.getElementById('backspin-count').textContent = strokes.filter(s => s.spin.type === 'Backspin').length;
-  
-  const avgSpeed = strokes.length > 0 ? strokes.reduce((a, s) => a + s.velocity, 0) / strokes.length : 0;
-  document.getElementById('avg-speed').textContent = avgSpeed > 0 ? avgSpeed.toFixed(0) : '--';
-  
-  // Update charts
-  updateCharts();
-}
-
-function updateCharts() {
-  const strokes = state.strokes;
-  
-  // Stroke distribution
-  const strokeTypes = ['FH Loop', 'BH Loop', 'FH Drive', 'BH Drive', 'Smash', 'Block', 'Chop', 'Flip'];
-  const strokeCounts = strokeTypes.map(t => strokes.filter(s => s.type.includes(t.split(' ')[0]) && s.type.includes(t.split(' ')[1] || '')).length);
-  strokeChart.data.datasets[0].data = strokeCounts;
-  strokeChart.update('none');
-  
-  // Spin distribution
-  const spinCounts = [
-    strokes.filter(s => s.spin.type === 'Topspin').length,
-    strokes.filter(s => s.spin.type === 'Backspin').length,
-    strokes.filter(s => s.spin.type === 'Sidespin').length,
-    strokes.filter(s => s.spin.type === 'Neutral').length
-  ];
-  spinChart.data.datasets[0].data = spinCounts;
-  spinChart.update('none');
-  
-  // Speed trend
-  const recentSpeeds = strokes.slice(-30).map(s => s.velocity);
-  speedChart.data.labels = recentSpeeds.map((_, i) => i + 1);
-  speedChart.data.datasets[0].data = recentSpeeds;
-  speedChart.update('none');
-}
-
-setInterval(refreshUI, 250);
-
-/* ============================================
-   EVENT LISTENERS
-   ============================================ */
-document.getElementById('dash-toggle').addEventListener('click', () => dashboard.classList.toggle('open'));
-
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
-  });
-});
-
-['wrist', 'foot', 'torso'].forEach(type => {
-  document.getElementById(`toggle-${type}`).addEventListener('click', (e) => {
-    state.overlayToggles[type] = !state.overlayToggles[type];
-    e.target.classList.toggle('active', state.overlayToggles[type]);
-  });
-});
-
-document.getElementById('videoUpload').addEventListener('change', (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  video.src = URL.createObjectURL(file);
-  document.getElementById('btn-start').disabled = false;
-  statusEl.textContent = 'Video loaded. Click Start.';
-});
-
-document.getElementById('btn-start').addEventListener('click', () => {
-  state.sessionActive = true;
-  statusDot.classList.add('active');
-  video.play();
-  analyzeFrame();
-  statusEl.textContent = 'Analyzing...';
-});
-
-document.getElementById('btn-pause').addEventListener('click', () => {
-  if (video.paused) { video.play(); statusEl.textContent = 'Analyzing...'; }
-  else { video.pause(); statusEl.textContent = 'Paused'; }
-});
-
-document.getElementById('toggle-skeleton').addEventListener('click', (e) => {
-  state.showSkeleton = !state.showSkeleton;
-  e.target.classList.toggle('active', state.showSkeleton);
-});
-
-document.getElementById('toggle-bio-overlay').addEventListener('click', (e) => {
-  state.showBioOverlay = !state.showBioOverlay;
-  e.target.classList.toggle('active', state.showBioOverlay);
-});
-
-document.getElementById('sensitivity').addEventListener('input', (e) => {
-  document.getElementById('sensitivity-val').textContent = e.target.value;
-});
-
-document.getElementById('show-tips').addEventListener('change', (e) => {
-  state.showTips = e.target.checked;
-});
-
-document.getElementById('btn-reset').addEventListener('click', () => {
-  if (confirm('Reset session?')) {
-    video.pause();
-    video.currentTime = 0;
-    state.sessionActive = false;
-    state.strokes = [];
-    state.wristHistory = { R: [], L: [] };
-    state.ankleHistory = { R: [], L: [] };
-    state.shoulderHistory = [];
-    state.hipHistory = [];
-    state.prevWrist = { R: null, L: null };
-    state.biomechanics.footwork.patterns = { crossover: 0, shuffle: 0, splitStep: 0, recovery: 0 };
-    timelineEl.innerHTML = '<div class="muted">Strokes will appear here during analysis...</div>';
-    feedbackPanel.innerHTML = '';
-    statusDot.classList.remove('active');
-    statusEl.textContent = 'Session reset';
-    refreshUI();
-  }
-});
-
-video.addEventListener('loadedmetadata', () => {
-  overlay.width = video.videoWidth;
-  overlay.height = video.videoHeight;
-  bioOverlay.width = video.videoWidth;
-  bioOverlay.height = video.videoHeight;
-  document.getElementById('btn-start').disabled = false;
-  document.getElementById('btn-pause').disabled = false;
-});
-
-video.addEventListener('ended', () => {
-  statusEl.textContent = 'Video ended';
-  statusDot.classList.remove('active');
-});
-
-// Export
-document.getElementById('export-json').addEventListener('click', () => {
-  const data = { strokes: state.strokes, biomechanics: state.biomechanics };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'tt_analysis.json'; a.click();
-});
-
-document.getElementById('export-pdf').addEventListener('click', () => {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-  doc.setFontSize(18); doc.setTextColor(0, 200, 220);
-  doc.text('Table Tennis Analysis Report', 40, 40);
-  doc.setFontSize(11); doc.setTextColor(0);
-  let y = 70;
-  doc.text(`Total Strokes: ${state.strokes.length}`, 40, y); y += 15;
-  doc.text(`Topspin: ${state.strokes.filter(s => s.spin.type === 'Topspin').length}`, 40, y); y += 15;
-  doc.text(`Backspin: ${state.strokes.filter(s => s.spin.type === 'Backspin').length}`, 40, y); y += 25;
-  state.strokes.slice(-15).forEach(s => {
-    doc.text(`${s.timestamp.toFixed(2)}s - ${s.type} • ${s.spin.type} ${s.spin.degree}%`, 40, y);
-    y += 12;
-  });
-  doc.save('tt_analysis.pdf');
-});
-
-statusEl.textContent = 'Upload a video to begin';
-</script>
-<p style="width: 65%">Please note that this product is still in development and may not be fully functional. 
-  It is our desire that you share your thoughts and interests around the product via the 
-  <b style="color:#00ff78">feedback form on the forwarding page</b> for continuous improvement purposes. You may also wish to indicate your interest to support us.</p>
+  </script>
 </body>
 </html>
